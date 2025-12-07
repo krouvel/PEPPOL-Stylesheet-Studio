@@ -6,8 +6,13 @@ const STORAGE_KEYS = {
     autoUpdate: "peppol_auto_update",
     layout: "peppol_layout_mode",
     xsltVersion: "peppol_xslt_version",
-    configVisible: "peppol_config_visible"
+    configVisible: "peppol_config_visible",
+    xmlCollapsed: "peppol_xml_collapsed",
+    xsltCollapsed: "peppol_xslt_collapsed",
+    logVisible: "peppol_log_visible"
 };
+
+
 
 let xmlEditor, xsltEditor;
 let lastHtml = "";
@@ -34,13 +39,14 @@ document.addEventListener("DOMContentLoaded", () => {
     initUI();
     restoreState();
     initConfigPanelVisibility();
+    initLogPanelVisibility();   // <--- add this line
     addLog("Application initialized.", "info");
 
-    // Trigger initial transform if we have data
     if (xmlEditor.getValue().trim() && xsltEditor.getValue().trim()) {
         scheduleTransform();
     }
 });
+
 
 function initEditors() {
     const xmlTextarea = document.getElementById("xmlEditor");
@@ -103,6 +109,10 @@ function initUI() {
     const insertImageBtn = document.getElementById("insertImageBtn");
     const goTopBtn = document.getElementById("goTopBtn");
     const toggleConfigPanelBtn = document.getElementById("toggleConfigPanelBtn");
+    const collapseXmlBtn = document.getElementById("collapseXmlBtn");
+    const collapseXsltBtn = document.getElementById("collapseXsltBtn");
+    const toggleLogPanelBtn = document.getElementById("toggleLogPanelBtn");
+
 
     autoUpdateCheckbox.addEventListener("change", () => {
         autoUpdate = autoUpdateCheckbox.checked;
@@ -217,6 +227,35 @@ function initUI() {
             );
         });
     }
+
+    if (collapseXmlBtn) {
+        collapseXmlBtn.addEventListener("click", () => {
+            toggleEditorCollapsed(xmlEditor, collapseXmlBtn, STORAGE_KEYS.xmlCollapsed);
+        });
+    }
+
+    if (collapseXsltBtn) {
+        collapseXsltBtn.addEventListener("click", () => {
+            toggleEditorCollapsed(xsltEditor, collapseXsltBtn, STORAGE_KEYS.xsltCollapsed);
+        });
+    }
+
+    if (toggleLogPanelBtn) {
+        toggleLogPanelBtn.addEventListener("click", () => {
+            const row = document.querySelector(".header-log-row");
+            if (!row) return;
+            const nowHidden = row.classList.toggle("hidden");
+            const visible = !nowHidden;
+            toggleLogPanelBtn.textContent = visible ? "Hide log" : "Show log";
+            try {
+                localStorage.setItem(STORAGE_KEYS.logVisible, String(visible));
+            } catch (e) {
+                // ignore storage errors
+            }
+        });
+    }
+
+
 }
 
 function initConfigPanelVisibility() {
@@ -235,6 +274,19 @@ function initConfigPanelVisibility() {
         toggleConfigPanelBtn.textContent = "Hide config";
     }
 }
+
+function initLogPanelVisibility() {
+    const row = document.querySelector(".header-log-row");
+    const toggleLogPanelBtn = document.getElementById("toggleLogPanelBtn");
+    if (!row || !toggleLogPanelBtn) return;
+
+    const stored = localStorage.getItem(STORAGE_KEYS.logVisible);
+    const visible = stored === null ? true : stored === "true";
+
+    row.classList.toggle("hidden", !visible);
+    toggleLogPanelBtn.textContent = visible ? "Hide log" : "Show log";
+}
+
 
 function restoreState() {
     const storedXml = localStorage.getItem(STORAGE_KEYS.xml);
@@ -278,7 +330,67 @@ function restoreState() {
         const xsltVersionSelect = document.getElementById("xsltVersionSelect");
         xsltVersionSelect.value = storedVersion;
     }
+
+    // Restore collapsed state of XML / XSLT editors
+    restoreEditorCollapseState();
+
 }
+
+function restoreEditorCollapseState() {
+    const collapseXmlBtn = document.getElementById("collapseXmlBtn");
+    const collapseXsltBtn = document.getElementById("collapseXsltBtn");
+
+    if (collapseXmlBtn && xmlEditor) {
+        const stored = localStorage.getItem(STORAGE_KEYS.xmlCollapsed);
+        if (stored !== null) {
+            const collapsed = stored === "true";
+            setEditorCollapsed(xmlEditor, collapseXmlBtn, collapsed, STORAGE_KEYS.xmlCollapsed, true);
+        }
+    }
+
+    if (collapseXsltBtn && xsltEditor) {
+        const stored = localStorage.getItem(STORAGE_KEYS.xsltCollapsed);
+        if (stored !== null) {
+            const collapsed = stored === "true";
+            setEditorCollapsed(xsltEditor, collapseXsltBtn, collapsed, STORAGE_KEYS.xsltCollapsed, true);
+        }
+    }
+}
+
+/**
+ * Set collapsed/expanded state for an editor.
+ * If skipSave = true, do not write to localStorage (used during initial restore).
+ */
+function setEditorCollapsed(editorInstance, buttonEl, collapsed, storageKey, skipSave = false) {
+    const wrapper = editorInstance.getWrapperElement();
+    if (!wrapper) return;
+
+    if (collapsed) {
+        wrapper.style.display = "none";
+        buttonEl.textContent = "+";
+        buttonEl.title = buttonEl.title.replace("Hide", "Show");
+    } else {
+        wrapper.style.display = "";
+        buttonEl.textContent = "−";
+        buttonEl.title = buttonEl.title.replace("Show", "Hide");
+        editorInstance.refresh();
+    }
+
+    if (!skipSave) {
+        try {
+            localStorage.setItem(storageKey, String(collapsed));
+        } catch (e) {
+            // ignore storage errors
+        }
+    }
+}
+
+function toggleEditorCollapsed(editorInstance, buttonEl, storageKey) {
+    const wrapper = editorInstance.getWrapperElement();
+    const currentlyCollapsed = wrapper.style.display === "none";
+    setEditorCollapsed(editorInstance, buttonEl, !currentlyCollapsed, storageKey);
+}
+
 
 function saveState() {
     try {
@@ -363,12 +475,28 @@ function doTransform() {
 // Make HTML preview height follow its content so the whole page scrolls
 function updatePreview(html) {
     const frame = document.getElementById("previewFrame");
+    if (!frame) return;
+
     const doc = frame.contentDocument || frame.contentWindow.document;
     doc.open();
     doc.write(html || "<!DOCTYPE html><html><body><p>No HTML result yet.</p></body></html>");
     doc.close();
 
-    // Auto-size iframe to its content height
+    const mainLayout = document.getElementById("mainLayout");
+    const isHorizontal =
+        mainLayout && mainLayout.classList.contains("main-layout-horizontal");
+
+    if (isHorizontal) {
+        // LEFT/RIGHT MODE:
+        // Do NOT auto-grow the iframe to full document height.
+        // Keep a fixed height (from CSS: min ~10cm) and let the iframe content scroll.
+        // Also clear any old inline height we might have set in vertical mode.
+        frame.style.height = "";
+        return;
+    }
+
+    // TOP/BOTTOM MODE:
+    // Auto-size iframe to its content, so the whole page scrolls.
     setTimeout(() => {
         try {
             const body = doc.body;
@@ -382,10 +510,11 @@ function updatePreview(html) {
             );
             frame.style.height = Math.min(height + 20, 2000) + "px";
         } catch (e) {
-            // ignore cross-origin issues (shouldn't happen here)
+            // ignore
         }
     }, 50);
 }
+
 
 function buildTimestamp() {
     const d = new Date();
@@ -415,16 +544,36 @@ function downloadText(filename, text) {
 
 function toggleLayout() {
     const mainLayout = document.getElementById("mainLayout");
+    const frame = document.getElementById("previewFrame");
     const isHorizontal = mainLayout.classList.contains("main-layout-horizontal");
+
+    // Flip classes
     mainLayout.classList.toggle("main-layout-horizontal", !isHorizontal);
     mainLayout.classList.toggle("main-layout-vertical", isHorizontal);
 
+    if (!isHorizontal) {
+        // We just switched from VERTICAL -> HORIZONTAL
+        // Clear any inline height so CSS (min 10cm) takes over.
+        if (frame) {
+            frame.style.height = "";
+        }
+    } else {
+        // We just switched from HORIZONTAL -> VERTICAL
+        // Re-run auto-sizing on the current HTML result.
+        if (frame && lastHtml) {
+            updatePreview(lastHtml);
+        }
+    }
+
     addLog(
-        "Layout changed to " + (isHorizontal ? "vertical (stacked)" : "horizontal (side-by-side)") + ".",
+        "Layout changed to " +
+            (isHorizontal ? "vertical (stacked)" : "horizontal (side-by-side)") +
+            ".",
         "info"
     );
     saveState();
 }
+
 
 function autoDetectXsltVersion() {
     const text = xsltEditor.getValue();

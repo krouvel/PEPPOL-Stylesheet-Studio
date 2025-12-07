@@ -1,19 +1,25 @@
 <header class="app-header">
     <div class="header-main">
+        <!-- Project title / subtitle -->
         <div class="header-left">
             <div class="app-title">PEPPOL XML/XSLT HTML Playground</div>
             <div class="app-subtitle">Live transformer &amp; preview</div>
         </div>
-        <div class="header-right">
+
+        <!-- Config + Log toggle buttons (stacked vertically) -->
+        <div class="header-config-toggle">
+            <button id="toggleLogPanelBtn">Hide log</button>
+            <button id="toggleConfigPanelBtn">Hide config</button>
+        </div>
+
+        <!-- Log row, full width below title -->
+        <div class="header-log-row">
             <div class="log-label">Log</div>
             <div id="log-panel" class="log-panel"></div>
         </div>
     </div>
 
-    <div class="header-config-toggle">
-        <button id="toggleConfigPanelBtn">Hide config</button>
-    </div>
-
+    <!-- Config panel stays the same -->
     <div id="configPanel" class="config-panel">
         <div class="config-section">
             <div class="config-title">Transformation</div>
@@ -74,6 +80,5 @@
             <button id="loadSampleBtn">Load simple sample</button>
             <button id="loadSaxonSampleBtn">Sample for Saxon</button>
         </div>
-
     </div>
 </header>

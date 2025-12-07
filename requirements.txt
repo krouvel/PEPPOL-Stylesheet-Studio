@@ -6,3 +6,5 @@ lxml>=5.0.0
 # - Java 11+ runtime
 # - Saxon-HE 12.x jar (download from Saxonica)
 # - xmlresolver 5.x jar (download from xmlresolver.org or Maven Central)
+# You can find these jars on Maven Central using sites like:
+# https://mvnrepository.com/artifact
