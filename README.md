@@ -411,3 +411,9 @@ Typical deployment options:
 - **Your own VPS / server / Docker** – containerize the app and run it wherever you like.
 
 If one day the XSLT transformations are done entirely in-browser (e.g. via Saxon-JS), then a fully static deployment (like GitHub Pages) would be possible.
+
+
+## Screenshots
+Main UI (XML/XSLT editors + HTML preview):
+![PEPPOL Stylesheet Studio UI](docs/img/screenshot-main.png)
+![screenshot-saxon.png](docs/img/screenshot-saxon.png)
