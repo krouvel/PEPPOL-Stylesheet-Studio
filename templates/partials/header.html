@@ -1,0 +1,79 @@
+<header class="app-header">
+    <div class="header-main">
+        <div class="header-left">
+            <div class="app-title">PEPPOL XML/XSLT HTML Playground</div>
+            <div class="app-subtitle">Live transformer &amp; preview</div>
+        </div>
+        <div class="header-right">
+            <div class="log-label">Log</div>
+            <div id="log-panel" class="log-panel"></div>
+        </div>
+    </div>
+
+    <div class="header-config-toggle">
+        <button id="toggleConfigPanelBtn">Hide config</button>
+    </div>
+
+    <div id="configPanel" class="config-panel">
+        <div class="config-section">
+            <div class="config-title">Transformation</div>
+            <label class="inline-control">
+                <input type="checkbox" id="autoUpdateCheckbox" checked>
+                Auto-update on change
+            </label>
+            <button id="generateBtn" disabled>Generate HTML</button>
+            <span class="hint">(Uncheck auto-update to enable manual generation.)</span>
+        </div>
+
+        <div class="config-section">
+            <div class="config-title">Export</div>
+            <div class="export-group">
+                <span>XML</span>
+                <button id="exportXmlBtn">Export</button>
+            </div>
+            <div class="export-group">
+                <span>XSLT</span>
+                <button id="exportXsltBtn">Export</button>
+            </div>
+            <div class="export-group">
+                <span>HTML</span>
+                <button id="exportHtmlBtn">Export</button>
+            </div>
+            <span class="hint">Filenames include a timestamp.</span>
+        </div>
+
+        <div class="config-section">
+            <div class="config-title">Stylesheet version</div>
+            <label for="xsltVersionSelect" class="toolbar-label">XSLT version:</label>
+            <select id="xsltVersionSelect">
+                <option value="1.0">1.0 (default)</option>
+                <option value="2.0">2.0</option>
+                <option value="3.0">3.0</option>
+            </select>
+            <span class="hint">
+                Auto-detected from
+                <code>&lt;xsl:stylesheet version="..."&gt;</code>
+                in the XSLT.
+            </span>
+        </div>
+
+        <div class="config-section">
+            <div class="config-title">Layout</div>
+            <button id="toggleLayoutBtn"
+                    title="Toggle between side-by-side and stacked layout">
+                Toggle layout
+            </button>
+            <span class="hint">
+                Swap XML/XSLT and HTML preview between horizontal and vertical layout.
+            </span>
+        </div>
+
+        <div class="config-section">
+            <div class="config-title">Helpers</div>
+            <button id="clearEditorsBtn">Clear XML &amp; XSLT</button>
+            <button id="loadSampleBtn">Load simple sample</button>
+            <button id="loadSaxonSampleBtn">Sample for Saxon</button>
+        </div>
+
+    </div>
+</header>

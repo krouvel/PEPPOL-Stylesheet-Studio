@@ -1,0 +1,55 @@
+<main id="mainLayout" class="main-layout main-layout-horizontal">
+    <!-- LEFT: XML + XSLT -->
+    <section class="pane pane-left">
+        <!-- XML editor -->
+        <div class="editor-block">
+            <div class="editor-header">
+                <div>
+                    <span class="editor-title">XML Source</span>
+                    <span class="editor-description">Raw XML input</span>
+                </div>
+            </div>
+            <textarea id="xmlEditor"></textarea>
+        </div>
+
+        <!-- XSLT editor -->
+        <div class="editor-block">
+            <div class="xslt-image-tools xslt-image-tools-top">
+                <span class="toolbar-label">Insert image into XSLT:</span>
+                <select id="imageInsertMode">
+                    <option value="dataUri">Base64 data URI</option>
+                    <option value="svgInline">Inline SVG</option>
+                </select>
+                <input type="file" id="imageFileInput" accept="image/*,image/svg+xml">
+                <button id="insertImageBtn">Insert image</button>
+            </div>
+
+            <div class="editor-header">
+                <div>
+                    <span class="editor-title">XSLT Stylesheet</span>
+                    <span class="editor-description">
+                        Transformation rules (PEPPOL or other stylesheets)
+                    </span>
+                </div>
+            </div>
+            <textarea id="xsltEditor"></textarea>
+        </div>
+    </section>
+
+    <!-- RIGHT: HTML RESULT PREVIEW -->
+    <section class="pane pane-right">
+        <div class="editor-block">
+            <div class="editor-header">
+                <div>
+                    <span class="editor-title">HTML Result Preview</span>
+                    <span class="editor-description">
+                        Live HTML generated from XML + XSLT
+                    </span>
+                </div>
+            </div>
+            <div class="preview-wrapper" style="min-height: 10cm;">
+                <iframe id="previewFrame" class="preview-frame"></iframe>
+            </div>
+        </div>
+    </section>
+</main>
