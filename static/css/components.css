@@ -1,0 +1,110 @@
+/* Engine indicator */
+
+.engine-indicator {
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.engine-indicator.engine-lxml {
+    color: #2563eb; /* blue-ish */
+}
+
+.engine-indicator.engine-saxon {
+    color: #16a34a; /* green-ish */
+}
+
+.engine-indicator.engine-error {
+    color: var(--error);
+}
+
+/* Preview zoom controls */
+
+.preview-zoom-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+}
+
+.preview-zoom-label {
+    min-width: 3rem;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+/* XSLT image tools */
+
+.xslt-image-tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.35rem 0.75rem 0.25rem;
+    border-bottom: 1px solid var(--border);
+    background: #f9fafb;
+    border-radius: 0.6rem 0.6rem 0 0;
+}
+
+#imageFileInput {
+    max-width: 160px;
+    font-size: 0.75rem;
+}
+
+/* CodeMirror container (editors) */
+
+.CodeMirror {
+    font-size: 0.8rem;
+    border-radius: 0 0 0.6rem 0.6rem;
+    min-height: 180px;
+    height: 240px;
+    max-height: 80vh;
+    resize: vertical;       /* user can resize vertically */
+    overflow: auto;
+}
+
+/* Log entries */
+
+.log-entry {
+    display: block;
+    white-space: nowrap;
+}
+
+.log-entry.info {
+    color: var(--text-muted);
+}
+
+.log-entry.error {
+    color: var(--error);
+    font-weight: 500;
+}
+
+/* Document info panel */
+
+.doc-info-content {
+    padding: 0.5rem 0.75rem 0.75rem;
+    font-size: 0.8rem;
+}
+
+.doc-info-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.doc-info-table th,
+.doc-info-table td {
+    padding: 0.15rem 0.25rem;
+    text-align: left;
+    vertical-align: top;
+}
+
+.doc-info-table th {
+    width: 35%;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.doc-info-empty {
+    margin: 0 0 0.25rem 0;
+    color: var(--text-muted);
+    font-style: italic;
+}
