@@ -254,6 +254,20 @@ button:disabled {
     color: var(--text-muted);
 }
 
+.preview-zoom-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+}
+
+.preview-zoom-label {
+    min-width: 3rem;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+
 /* XSLT image tools */
 
 .xslt-image-tools {

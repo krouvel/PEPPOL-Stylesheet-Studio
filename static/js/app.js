@@ -1,4 +1,5 @@
-// Keys for localStorage
+// ------- Persistent storage keys -------
+
 const STORAGE_KEYS = {
     xml: "peppol_xml_content",
     xslt: "peppol_xslt_content",
@@ -9,15 +10,19 @@ const STORAGE_KEYS = {
     configVisible: "peppol_config_visible",
     xmlCollapsed: "peppol_xml_collapsed",
     xsltCollapsed: "peppol_xslt_collapsed",
-    logVisible: "peppol_log_visible"
+    logVisible: "peppol_log_visible",
+    previewZoom: "peppol_preview_zoom"
 };
-
-
 
 let xmlEditor, xsltEditor;
 let lastHtml = "";
 let autoUpdate = true;
 let transformTimeout = null;
+
+let previewZoom = 1.0;
+const PREVIEW_ZOOM_MIN = 0.25;
+const PREVIEW_ZOOM_MAX = 3.0;
+const PREVIEW_ZOOM_STEP = 0.1;
 
 // Simple list for XML/XSLT / HTML hints when pressing Ctrl+Space
 const XML_XSLT_HINT_ITEMS = [
@@ -39,7 +44,8 @@ document.addEventListener("DOMContentLoaded", () => {
     initUI();
     restoreState();
     initConfigPanelVisibility();
-    initLogPanelVisibility();   // <--- add this line
+    initLogPanelVisibility();
+    restorePreviewZoom();
     addLog("Application initialized.", "info");
 
     if (xmlEditor.getValue().trim() && xsltEditor.getValue().trim()) {
@@ -47,6 +53,16 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 });
 
+// Disable Ctrl+S / Cmd+S so browser "Save page" doesn't pop up
+document.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && (e.key === "s" || e.key === "S")) {
+        e.preventDefault();
+        addLog("Ctrl+S is disabled in this app.", "info");
+    }
+});
+
+
+// ------- Editors (CodeMirror) -------
 
 function initEditors() {
     const xmlTextarea = document.getElementById("xmlEditor");
@@ -93,6 +109,9 @@ function initEditors() {
     }
 }
 
+
+// ------- UI wiring -------
+
 function initUI() {
     const autoUpdateCheckbox = document.getElementById("autoUpdateCheckbox");
     const generateBtn = document.getElementById("generateBtn");
@@ -109,10 +128,12 @@ function initUI() {
     const insertImageBtn = document.getElementById("insertImageBtn");
     const goTopBtn = document.getElementById("goTopBtn");
     const toggleConfigPanelBtn = document.getElementById("toggleConfigPanelBtn");
+    const toggleLogPanelBtn = document.getElementById("toggleLogPanelBtn");
     const collapseXmlBtn = document.getElementById("collapseXmlBtn");
     const collapseXsltBtn = document.getElementById("collapseXsltBtn");
-    const toggleLogPanelBtn = document.getElementById("toggleLogPanelBtn");
-
+    const previewZoomInBtn = document.getElementById("previewZoomInBtn");
+    const previewZoomOutBtn = document.getElementById("previewZoomOutBtn");
+    const previewZoomResetBtn = document.getElementById("previewZoomResetBtn");
 
     autoUpdateCheckbox.addEventListener("change", () => {
         autoUpdate = autoUpdateCheckbox.checked;
@@ -193,7 +214,6 @@ function initUI() {
         });
     }
 
-
     insertImageBtn.addEventListener("click", () => {
         const file = imageFileInput.files[0];
         if (!file) {
@@ -221,10 +241,29 @@ function initUI() {
                 panel.classList.add("config-hidden");
                 toggleConfigPanelBtn.textContent = "Show config";
             }
-            localStorage.setItem(
-                STORAGE_KEYS.configVisible,
-                String(!currentlyHidden)
-            );
+            try {
+                localStorage.setItem(
+                    STORAGE_KEYS.configVisible,
+                    String(!currentlyHidden)
+                );
+            } catch (e) {
+                // ignore
+            }
+        });
+    }
+
+    if (toggleLogPanelBtn) {
+        toggleLogPanelBtn.addEventListener("click", () => {
+            const row = document.querySelector(".header-log-row");
+            if (!row) return;
+            const nowHidden = row.classList.toggle("hidden");
+            const visible = !nowHidden;
+            toggleLogPanelBtn.textContent = visible ? "Hide log" : "Show log";
+            try {
+                localStorage.setItem(STORAGE_KEYS.logVisible, String(visible));
+            } catch (e) {
+                // ignore
+            }
         });
     }
 
@@ -240,23 +279,27 @@ function initUI() {
         });
     }
 
-    if (toggleLogPanelBtn) {
-        toggleLogPanelBtn.addEventListener("click", () => {
-            const row = document.querySelector(".header-log-row");
-            if (!row) return;
-            const nowHidden = row.classList.toggle("hidden");
-            const visible = !nowHidden;
-            toggleLogPanelBtn.textContent = visible ? "Hide log" : "Show log";
-            try {
-                localStorage.setItem(STORAGE_KEYS.logVisible, String(visible));
-            } catch (e) {
-                // ignore storage errors
-            }
+    if (previewZoomInBtn) {
+        previewZoomInBtn.addEventListener("click", () => {
+            setPreviewZoom(previewZoom + PREVIEW_ZOOM_STEP);
         });
     }
 
+    if (previewZoomOutBtn) {
+        previewZoomOutBtn.addEventListener("click", () => {
+            setPreviewZoom(previewZoom - PREVIEW_ZOOM_STEP);
+        });
+    }
 
+    if (previewZoomResetBtn) {
+        previewZoomResetBtn.addEventListener("click", () => {
+            setPreviewZoom(1.0);
+        });
+    }
 }
+
+
+// ------- Config & log visibility -------
 
 function initConfigPanelVisibility() {
     const panel = document.getElementById("configPanel");
@@ -287,6 +330,8 @@ function initLogPanelVisibility() {
     toggleLogPanelBtn.textContent = visible ? "Hide log" : "Show log";
 }
 
+
+// ------- State persistence -------
 
 function restoreState() {
     const storedXml = localStorage.getItem(STORAGE_KEYS.xml);
@@ -333,64 +378,7 @@ function restoreState() {
 
     // Restore collapsed state of XML / XSLT editors
     restoreEditorCollapseState();
-
 }
-
-function restoreEditorCollapseState() {
-    const collapseXmlBtn = document.getElementById("collapseXmlBtn");
-    const collapseXsltBtn = document.getElementById("collapseXsltBtn");
-
-    if (collapseXmlBtn && xmlEditor) {
-        const stored = localStorage.getItem(STORAGE_KEYS.xmlCollapsed);
-        if (stored !== null) {
-            const collapsed = stored === "true";
-            setEditorCollapsed(xmlEditor, collapseXmlBtn, collapsed, STORAGE_KEYS.xmlCollapsed, true);
-        }
-    }
-
-    if (collapseXsltBtn && xsltEditor) {
-        const stored = localStorage.getItem(STORAGE_KEYS.xsltCollapsed);
-        if (stored !== null) {
-            const collapsed = stored === "true";
-            setEditorCollapsed(xsltEditor, collapseXsltBtn, collapsed, STORAGE_KEYS.xsltCollapsed, true);
-        }
-    }
-}
-
-/**
- * Set collapsed/expanded state for an editor.
- * If skipSave = true, do not write to localStorage (used during initial restore).
- */
-function setEditorCollapsed(editorInstance, buttonEl, collapsed, storageKey, skipSave = false) {
-    const wrapper = editorInstance.getWrapperElement();
-    if (!wrapper) return;
-
-    if (collapsed) {
-        wrapper.style.display = "none";
-        buttonEl.textContent = "+";
-        buttonEl.title = buttonEl.title.replace("Hide", "Show");
-    } else {
-        wrapper.style.display = "";
-        buttonEl.textContent = "−";
-        buttonEl.title = buttonEl.title.replace("Show", "Hide");
-        editorInstance.refresh();
-    }
-
-    if (!skipSave) {
-        try {
-            localStorage.setItem(storageKey, String(collapsed));
-        } catch (e) {
-            // ignore storage errors
-        }
-    }
-}
-
-function toggleEditorCollapsed(editorInstance, buttonEl, storageKey) {
-    const wrapper = editorInstance.getWrapperElement();
-    const currentlyCollapsed = wrapper.style.display === "none";
-    setEditorCollapsed(editorInstance, buttonEl, !currentlyCollapsed, storageKey);
-}
-
 
 function saveState() {
     try {
@@ -398,9 +386,10 @@ function saveState() {
         localStorage.setItem(STORAGE_KEYS.xslt, xsltEditor.getValue());
         localStorage.setItem(STORAGE_KEYS.html, lastHtml);
         localStorage.setItem(STORAGE_KEYS.autoUpdate, String(autoUpdate));
+        const mainLayout = document.getElementById("mainLayout");
         localStorage.setItem(
             STORAGE_KEYS.layout,
-            document.getElementById("mainLayout").classList.contains("main-layout-vertical")
+            mainLayout.classList.contains("main-layout-vertical")
                 ? "main-layout-vertical"
                 : "main-layout-horizontal"
         );
@@ -411,8 +400,12 @@ function saveState() {
     }
 }
 
+
+// ------- Logging -------
+
 function addLog(message, level = "info") {
     const panel = document.getElementById("log-panel");
+    if (!panel) return;
     const entry = document.createElement("div");
     entry.className = `log-entry ${level}`;
     const time = new Date().toLocaleTimeString();
@@ -420,6 +413,9 @@ function addLog(message, level = "info") {
     panel.appendChild(entry);
     panel.scrollTop = panel.scrollHeight;
 }
+
+
+// ------- Transform logic -------
 
 function scheduleTransform() {
     if (transformTimeout) {
@@ -472,7 +468,9 @@ function doTransform() {
         });
 }
 
-// Make HTML preview height follow its content so the whole page scrolls
+
+// ------- Preview & zoom -------
+
 function updatePreview(html) {
     const frame = document.getElementById("previewFrame");
     if (!frame) return;
@@ -486,17 +484,19 @@ function updatePreview(html) {
     const isHorizontal =
         mainLayout && mainLayout.classList.contains("main-layout-horizontal");
 
+    // Apply zoom to the content document
+    applyPreviewZoom(doc);
+
     if (isHorizontal) {
         // LEFT/RIGHT MODE:
-        // Do NOT auto-grow the iframe to full document height.
-        // Keep a fixed height (from CSS: min ~10cm) and let the iframe content scroll.
-        // Also clear any old inline height we might have set in vertical mode.
+        // Do NOT auto-grow the iframe to content height.
+        // Keep CSS min-height and scroll inside iframe.
         frame.style.height = "";
         return;
     }
 
     // TOP/BOTTOM MODE:
-    // Auto-size iframe to its content, so the whole page scrolls.
+    // Auto-size iframe to its content so the page scrolls.
     setTimeout(() => {
         try {
             const body = doc.body;
@@ -515,6 +515,80 @@ function updatePreview(html) {
     }, 50);
 }
 
+function applyPreviewZoom(doc) {
+    if (!doc) return;
+    const htmlEl = doc.documentElement || doc.body;
+    htmlEl.style.zoom = previewZoom;
+}
+
+function setPreviewZoom(newZoom) {
+    const clamped = Math.min(PREVIEW_ZOOM_MAX, Math.max(PREVIEW_ZOOM_MIN, newZoom));
+    previewZoom = clamped;
+
+    const label = document.getElementById("previewZoomLabel");
+    if (label) {
+        label.textContent = Math.round(previewZoom * 100) + "%";
+    }
+
+    try {
+        localStorage.setItem(STORAGE_KEYS.previewZoom, String(previewZoom));
+    } catch (e) {
+        // ignore
+    }
+
+    const frame = document.getElementById("previewFrame");
+    if (frame) {
+        const doc = frame.contentDocument || frame.contentWindow.document;
+        applyPreviewZoom(doc);
+    }
+}
+
+function restorePreviewZoom() {
+    const stored = localStorage.getItem(STORAGE_KEYS.previewZoom);
+    if (stored !== null) {
+        const val = parseFloat(stored);
+        if (!Number.isNaN(val) && val > 0) {
+            previewZoom = val;
+        }
+    }
+    setPreviewZoom(previewZoom);
+}
+
+
+// ------- Layout toggle -------
+
+function toggleLayout() {
+    const mainLayout = document.getElementById("mainLayout");
+    const frame = document.getElementById("previewFrame");
+    const isHorizontal = mainLayout.classList.contains("main-layout-horizontal");
+
+    // Flip classes
+    mainLayout.classList.toggle("main-layout-horizontal", !isHorizontal);
+    mainLayout.classList.toggle("main-layout-vertical", isHorizontal);
+
+    if (!isHorizontal) {
+        // switched VERTICAL -> HORIZONTAL
+        if (frame) {
+            frame.style.height = "";
+        }
+    } else {
+        // switched HORIZONTAL -> VERTICAL
+        if (frame && lastHtml) {
+            updatePreview(lastHtml);
+        }
+    }
+
+    addLog(
+        "Layout changed to " +
+        (isHorizontal ? "vertical (stacked)" : "horizontal (side-by-side)") +
+        ".",
+        "info"
+    );
+    saveState();
+}
+
+
+// ------- Helpers -------
 
 function buildTimestamp() {
     const d = new Date();
@@ -541,39 +615,6 @@ function downloadText(filename, text) {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 }
-
-function toggleLayout() {
-    const mainLayout = document.getElementById("mainLayout");
-    const frame = document.getElementById("previewFrame");
-    const isHorizontal = mainLayout.classList.contains("main-layout-horizontal");
-
-    // Flip classes
-    mainLayout.classList.toggle("main-layout-horizontal", !isHorizontal);
-    mainLayout.classList.toggle("main-layout-vertical", isHorizontal);
-
-    if (!isHorizontal) {
-        // We just switched from VERTICAL -> HORIZONTAL
-        // Clear any inline height so CSS (min 10cm) takes over.
-        if (frame) {
-            frame.style.height = "";
-        }
-    } else {
-        // We just switched from HORIZONTAL -> VERTICAL
-        // Re-run auto-sizing on the current HTML result.
-        if (frame && lastHtml) {
-            updatePreview(lastHtml);
-        }
-    }
-
-    addLog(
-        "Layout changed to " +
-            (isHorizontal ? "vertical (stacked)" : "horizontal (side-by-side)") +
-            ".",
-        "info"
-    );
-    saveState();
-}
-
 
 function autoDetectXsltVersion() {
     const text = xsltEditor.getValue();
@@ -642,13 +683,8 @@ function loadSampleContent() {
     xsltEditor.setValue(sampleXslt);
 }
 
-/**
- * Handle "insert image" helper near XSLT editor.
- * mode = "dataUri" (Base64 data URI) or "svgInline" (inline SVG markup).
- */
 function handleImageInsert(file, mode) {
     if (mode === "svgInline") {
-        // Always treat as text and insert raw SVG markup
         const reader = new FileReader();
         reader.onload = (e) => {
             const svgText = e.target.result;
@@ -662,10 +698,9 @@ ${svgText}
         };
         reader.readAsText(file);
     } else {
-        // Base64 data URI
         const reader = new FileReader();
         reader.onload = (e) => {
-            const dataUrl = e.target.result; // e.g. data:image/png;base64,...
+            const dataUrl = e.target.result;
             const snippet = `
 <!-- Image inserted via helper -->
 <img src="${dataUrl}" alt="Embedded image" />
@@ -678,10 +713,6 @@ ${svgText}
     }
 }
 
-/**
- * Simple XML/XSLT / HTML helper for Ctrl+Space.
- * Suggests from XML_XSLT_HINT_ITEMS based on current token prefix.
- */
 function xmlXsltHint(cm) {
     const cur = cm.getCursor();
     const token = cm.getTokenAt(cur);
@@ -701,4 +732,58 @@ function xmlXsltHint(cm) {
         from: CodeMirror.Pos(cur.line, start),
         to: CodeMirror.Pos(cur.line, end)
     };
+}
+
+
+// ------- Collapse / expand XML & XSLT editors -------
+
+function restoreEditorCollapseState() {
+    const collapseXmlBtn = document.getElementById("collapseXmlBtn");
+    const collapseXsltBtn = document.getElementById("collapseXsltBtn");
+
+    if (collapseXmlBtn && xmlEditor) {
+        const stored = localStorage.getItem(STORAGE_KEYS.xmlCollapsed);
+        if (stored !== null) {
+            const collapsed = stored === "true";
+            setEditorCollapsed(xmlEditor, collapseXmlBtn, collapsed, STORAGE_KEYS.xmlCollapsed, true);
+        }
+    }
+
+    if (collapseXsltBtn && xsltEditor) {
+        const stored = localStorage.getItem(STORAGE_KEYS.xsltCollapsed);
+        if (stored !== null) {
+            const collapsed = stored === "true";
+            setEditorCollapsed(xsltEditor, collapseXsltBtn, collapsed, STORAGE_KEYS.xsltCollapsed, true);
+        }
+    }
+}
+
+function setEditorCollapsed(editorInstance, buttonEl, collapsed, storageKey, skipSave = false) {
+    const wrapper = editorInstance.getWrapperElement();
+    if (!wrapper) return;
+
+    if (collapsed) {
+        wrapper.style.display = "none";
+        buttonEl.textContent = "+";
+        buttonEl.title = buttonEl.title.replace("Hide", "Show");
+    } else {
+        wrapper.style.display = "";
+        buttonEl.textContent = "−";
+        buttonEl.title = buttonEl.title.replace("Show", "Hide");
+        editorInstance.refresh();
+    }
+
+    if (!skipSave) {
+        try {
+            localStorage.setItem(storageKey, String(collapsed));
+        } catch (e) {
+            // ignore
+        }
+    }
+}
+
+function toggleEditorCollapsed(editorInstance, buttonEl, storageKey) {
+    const wrapper = editorInstance.getWrapperElement();
+    const currentlyCollapsed = wrapper.style.display === "none";
+    setEditorCollapsed(editorInstance, buttonEl, !currentlyCollapsed, storageKey);
 }
