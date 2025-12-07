@@ -1,13 +1,10 @@
 :root {
-    --bg: #f5f7fa;
+    --bg: #f3f4f6;
     --bg-alt: #ffffff;
-    --border: #d0d7de;
-    --accent: #2563eb;
-    --accent-soft: rgba(37, 99, 235, 0.08);
-    --text-main: #111827;
+    --text: #111827;
     --text-muted: #6b7280;
+    --border: #e5e7eb;
     --error: #b91c1c;
-    --header-height: 80px;
     --footer-height: 40px;
 }
 
@@ -21,8 +18,17 @@
 body {
     margin: 0;
     font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    color: var(--text-main);
     background: var(--bg);
+    color: var(--text);
+}
+
+body.theme-dark {
+    --bg: #020617;
+    --bg-alt: #0f172a;
+    --text: #e5e7eb;
+    --text-muted: #9ca3af;
+    --border: #1f2937;
+    --error: #f87171;
 }
 
 /* Sticky header */
@@ -127,6 +133,23 @@ body {
     font-weight: 600;
     font-size: 0.85rem;
     margin-bottom: 0.15rem;
+}
+
+.engine-indicator {
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.engine-indicator.engine-lxml {
+    color: #2563eb; /* blue-ish */
+}
+
+.engine-indicator.engine-saxon {
+    color: #16a34a; /* green-ish */
+}
+
+.engine-indicator.engine-error {
+    color: var(--error);
 }
 
 /* Generic UI */
@@ -356,6 +379,18 @@ button:disabled {
     font-weight: 600;
 }
 
+.theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.8rem;
+}
+
+.theme-toggle input {
+    transform: scale(0.9);
+}
+
+
 /* Log entries */
 
 .log-entry {
@@ -370,6 +405,35 @@ button:disabled {
 .log-entry.error {
     color: var(--error);
     font-weight: 500;
+}
+
+.doc-info-content {
+    padding: 0.5rem 0.75rem 0.75rem;
+    font-size: 0.8rem;
+}
+
+.doc-info-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.doc-info-table th,
+.doc-info-table td {
+    padding: 0.15rem 0.25rem;
+    text-align: left;
+    vertical-align: top;
+}
+
+.doc-info-table th {
+    width: 35%;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.doc-info-empty {
+    margin: 0 0 0.25rem 0;
+    color: var(--text-muted);
+    font-style: italic;
 }
 
 /* Responsive tweaks */

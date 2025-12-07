@@ -184,10 +184,12 @@ def api_transform():
     ui_version = data.get("version", "1.0")
 
     logs = []
+    engine = "lxml"
 
     # Decide which engine to use
     use_saxon = SAXON_ENABLED and ui_version in ("2.0", "3.0")
     if use_saxon:
+        engine = "saxon"
         logs.append(
             f"Using Saxon engine for XSLT {ui_version} (configured jar: {os.path.basename(SAXON_JAR_PATH)})."
         )
@@ -195,7 +197,7 @@ def api_transform():
     else:
         engine_info = "lxml (XSLT 1.0)"
         if SAXON_ENABLED and ui_version in ("2.0", "3.0"):
-            engine_info += " [Saxon available but not selected]"  # safety
+            engine_info += " [Saxon available but not selected]"
         logs.append(f"Using {engine_info}.")
         html, eng_logs, error = transform_with_lxml(xml, xslt)
 
@@ -203,10 +205,11 @@ def api_transform():
 
     if error:
         logs.append("[ERROR] Transform failed.")
-        return jsonify({"ok": False, "html": "", "log": logs}), 400
+        return jsonify({"ok": False, "html": "", "log": logs, "engine": engine}), 400
 
     logs.append("[INFO] Transform succeeded.")
-    return jsonify({"ok": True, "html": html, "log": logs})
+    return jsonify({"ok": True, "html": html, "log": logs, "engine": engine})
+
 
 @app.route("/api/sample/saxon", methods=["GET"])
 def api_sample_saxon():

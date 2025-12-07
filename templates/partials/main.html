@@ -1,6 +1,30 @@
 <main id="mainLayout" class="main-layout main-layout-horizontal">
     <!-- LEFT: XML + XSLT -->
     <section class="pane pane-left">
+        <div class="editor-block" id="docInfoBlock">
+            <div class="editor-header">
+                <div>
+                    <span class="editor-title">Document info</span>
+                    <span class="editor-description">
+                        Basic details parsed from XML (best effort)
+                    </span>
+                </div>
+                <button id="toggleDocInfoBtn" class="collapse-btn" title="Hide document info">−</button>
+            </div>
+            <div id="docInfoContent" class="doc-info-content">
+                <p class="doc-info-empty">No document info yet.</p>
+                <table class="doc-info-table">
+                    <tbody>
+                        <tr><th>Root element</th><td id="docInfoRoot">—</td></tr>
+                        <tr><th>Invoice ID</th><td id="docInfoId">—</td></tr>
+                        <tr><th>Issue date</th><td id="docInfoIssueDate">—</td></tr>
+                        <tr><th>Due date</th><td id="docInfoDueDate">—</td></tr>
+                        <tr><th>Detected type</th><td id="docInfoType">—</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         <!-- XML editor -->
         <div class="editor-block">
             <div class="editor-header">

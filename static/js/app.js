@@ -11,8 +11,11 @@ const STORAGE_KEYS = {
     xmlCollapsed: "peppol_xml_collapsed",
     xsltCollapsed: "peppol_xslt_collapsed",
     logVisible: "peppol_log_visible",
-    previewZoom: "peppol_preview_zoom"
+    previewZoom: "peppol_preview_zoom",
+    theme: "peppol_theme",
+    docInfoCollapsed: "peppol_docinfo_collapsed"
 };
+
 
 let xmlEditor, xsltEditor;
 let lastHtml = "";
@@ -40,18 +43,21 @@ const XML_XSLT_HINT_ITEMS = [
 ];
 
 document.addEventListener("DOMContentLoaded", () => {
+    initTheme();
     initEditors();
     initUI();
     restoreState();
     initConfigPanelVisibility();
     initLogPanelVisibility();
     restorePreviewZoom();
+    initDocInfoCollapse();
     addLog("Application initialized.", "info");
 
     if (xmlEditor.getValue().trim() && xsltEditor.getValue().trim()) {
         scheduleTransform();
     }
 });
+
 
 // Disable Ctrl+S / Cmd+S so browser "Save page" doesn't pop up
 document.addEventListener("keydown", (e) => {
@@ -88,6 +94,7 @@ function initEditors() {
     xsltEditor.setOption("extraKeys", hintKeymap);
 
     xmlEditor.on("change", () => {
+        updateDocumentInfoFromXml();
         saveState();
         if (autoUpdate) scheduleTransform();
     });
@@ -134,6 +141,12 @@ function initUI() {
     const previewZoomInBtn = document.getElementById("previewZoomInBtn");
     const previewZoomOutBtn = document.getElementById("previewZoomOutBtn");
     const previewZoomResetBtn = document.getElementById("previewZoomResetBtn");
+    const loadXmlFileBtn = document.getElementById("loadXmlFileBtn");
+    const loadXsltFileBtn = document.getElementById("loadXsltFileBtn");
+    const xmlFileInput = document.getElementById("xmlFileInput");
+    const xsltFileInput = document.getElementById("xsltFileInput");
+    const themeToggle = document.getElementById("themeToggle");
+
 
     autoUpdateCheckbox.addEventListener("change", () => {
         autoUpdate = autoUpdateCheckbox.checked;
@@ -203,6 +216,7 @@ function initUI() {
                     }
                     xmlEditor.setValue(data.xml || "");
                     xsltEditor.setValue(data.xslt || "");
+                    updateDocumentInfoFromXml();
                     autoDetectXsltVersion();
                     addLog("Loaded Saxon PEPPOL sample from server.", "info");
                     saveState();
@@ -300,6 +314,60 @@ function initUI() {
             setPreviewZoom(1.0);
         });
     }
+
+    if (loadXmlFileBtn && xmlFileInput) {
+        loadXmlFileBtn.addEventListener("click", () => {
+            xmlFileInput.click();
+        });
+        xmlFileInput.addEventListener("change", () => {
+            const file = xmlFileInput.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const text = e.target.result || "";
+                xmlEditor.setValue(text);
+                updateDocumentInfoFromXml();
+                addLog(`Loaded XML from file: ${file.name}`, "info");
+                saveState();
+                if (autoUpdate) {
+                    scheduleTransform();
+                } else {
+                    addLog("Auto-update is off – click 'Generate HTML' to apply changes.", "info");
+                }
+            };
+            reader.readAsText(file);
+        });
+    }
+
+    if (loadXsltFileBtn && xsltFileInput) {
+        loadXsltFileBtn.addEventListener("click", () => {
+            xsltFileInput.click();
+        });
+        xsltFileInput.addEventListener("change", () => {
+            const file = xsltFileInput.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const text = e.target.result || "";
+                xsltEditor.setValue(text);
+                autoDetectXsltVersion();
+                addLog(`Loaded XSLT from file: ${file.name}`, "info");
+                saveState();
+                if (autoUpdate) {
+                    scheduleTransform();
+                } else {
+                    addLog("Auto-update is off – click 'Generate HTML' to apply changes.", "info");
+                }
+            };
+            reader.readAsText(file);
+        });
+    }
+
+    if (themeToggle) {
+        themeToggle.addEventListener("change", () => {
+            setTheme(themeToggle.checked ? "dark" : "light");
+        });
+    }
 }
 
 
@@ -351,6 +419,9 @@ function restoreState() {
         loadSampleContent(); // first time: load sample
     }
 
+    // After XML is in place, update document info
+    updateDocumentInfoFromXml();
+
     if (storedXslt !== null) {
         xsltEditor.setValue(storedXslt);
     }
@@ -379,6 +450,11 @@ function restoreState() {
         const xsltVersionSelect = document.getElementById("xsltVersionSelect");
         xsltVersionSelect.value = storedVersion;
     }
+
+    // set a default engine indicator
+    const xsltVersionSelectEl = document.getElementById("xsltVersionSelect");
+    const version = xsltVersionSelectEl ? xsltVersionSelectEl.value : "1.0";
+    updateEngineIndicator("lxml", version);
 
     // Restore collapsed state of XML / XSLT editors
     restoreEditorCollapseState();
@@ -458,9 +534,17 @@ function doTransform() {
                 });
             }
 
+            const xsltVersionSelect = document.getElementById("xsltVersionSelect");
+            const version = xsltVersionSelect ? xsltVersionSelect.value : "1.0";
+
             if (!ok || !data.ok) {
+                updateEngineIndicator("error", version);
                 addLog("Transformation failed.", "error");
                 return;
+            }
+
+            if (data.engine) {
+                updateEngineIndicator(data.engine, version);
             }
 
             lastHtml = data.html || "";
@@ -641,6 +725,187 @@ function autoDetectXsltVersion() {
     }
 }
 
+function updateEngineIndicator(engine, version) {
+    const el = document.getElementById("engineIndicator");
+    if (!el) return;
+    el.classList.remove("engine-lxml", "engine-saxon", "engine-error");
+
+    let text = "Engine: unknown";
+
+    if (engine === "lxml") {
+        el.classList.add("engine-lxml");
+        text = "Engine: lxml (XSLT 1.0)";
+    } else if (engine === "saxon") {
+        el.classList.add("engine-saxon");
+        text = `Engine: Saxon-HE (XSLT ${version})`;
+    } else if (engine === "error") {
+        el.classList.add("engine-error");
+        text = "Engine: error";
+    }
+
+    el.textContent = text;
+}
+
+function applyTheme(theme) {
+    const body = document.body;
+    const themeToggle = document.getElementById("themeToggle");
+    if (theme === "dark") {
+        body.classList.add("theme-dark");
+        if (themeToggle) themeToggle.checked = true;
+    } else {
+        body.classList.remove("theme-dark");
+        if (themeToggle) themeToggle.checked = false;
+    }
+}
+
+function initTheme() {
+    const body = document.body;
+    const themeToggle = document.getElementById("themeToggle");
+
+    // Always use light theme for now
+    body.classList.remove("theme-dark");
+    if (themeToggle) {
+        themeToggle.checked = false;
+        themeToggle.disabled = true;
+    }
+
+    try {
+        localStorage.setItem(STORAGE_KEYS.theme, "light");
+    } catch (e) {
+        // ignore
+    }
+}
+
+
+function setTheme(theme) {
+    applyTheme(theme);
+    try {
+        localStorage.setItem(STORAGE_KEYS.theme, theme);
+    } catch (e) {
+        // ignore
+    }
+}
+
+function updateDocumentInfoFromXml() {
+    const xml = xmlEditor.getValue();
+    const rootEl = document.getElementById("docInfoRoot");
+    const idEl = document.getElementById("docInfoId");
+    const issueEl = document.getElementById("docInfoIssueDate");
+    const dueEl = document.getElementById("docInfoDueDate");
+    const typeEl = document.getElementById("docInfoType");
+    const emptyEl = document.querySelector("#docInfoContent .doc-info-empty");
+
+    if (!rootEl || !idEl || !issueEl || !dueEl || !typeEl) return;
+
+    if (!xml.trim()) {
+        rootEl.textContent = "—";
+        idEl.textContent = "—";
+        issueEl.textContent = "—";
+        dueEl.textContent = "—";
+        typeEl.textContent = "—";
+        if (emptyEl) emptyEl.style.display = "block";
+        return;
+    }
+
+    let root = "—";
+    let invoiceId = "—";
+    let issueDate = "—";
+    let dueDate = "—";
+    let dtype = "Unknown";
+
+    // Root element (ignore optional prefix, e.g. <cbc:Invoice>)
+    const rootMatch = xml.match(/<\s*(?:\w+:)?([A-Za-z_][\w\-.]*)[^>]*>/);
+    if (rootMatch) {
+        root = rootMatch[1];
+        if (/invoice/i.test(root)) {
+            dtype = "Invoice";
+        }
+    }
+
+    // Try to detect UBL/PEPPOL namespace
+    if (/urn:oasis:names:specification:ubl:schema:xsd:Invoice-2/i.test(xml)) {
+        dtype = "UBL Invoice (PEPPOL-like)";
+    }
+
+    // Invoice ID: allow optional prefix, e.g. <cbc:ID>
+    // First try cbc:ID explicitly, then any :ID, then plain <ID>
+    let idMatch =
+        xml.match(/<\s*cbc:ID[^>]*>([^<]+)<\/\s*cbc:ID\s*>/i) ||
+        xml.match(/<\s*(?:\w+:)?ID[^>]*>([^<]+)<\/\s*(?:\w+:)?ID\s*>/i);
+
+    if (idMatch) {
+        invoiceId = idMatch[1].trim();
+    }
+
+    // Issue date: <cbc:IssueDate> or <IssueDate>
+    const issueMatch =
+        xml.match(/<\s*(?:\w+:)?IssueDate[^>]*>([^<]+)<\/\s*(?:\w+:)?IssueDate\s*>/i);
+    if (issueMatch) {
+        issueDate = issueMatch[1].trim();
+    }
+
+    // Due date: <cbc:DueDate> or <DueDate>
+    const dueMatch =
+        xml.match(/<\s*(?:\w+:)?DueDate[^>]*>([^<]+)<\/\s*(?:\w+:)?DueDate\s*>/i);
+    if (dueMatch) {
+        dueDate = dueMatch[1].trim();
+    }
+
+    rootEl.textContent = root;
+    idEl.textContent = invoiceId;
+    issueEl.textContent = issueDate;
+    dueEl.textContent = dueDate;
+    typeEl.textContent = dtype;
+
+    if (emptyEl) {
+        const allEmpty =
+            root === "—" &&
+            invoiceId === "—" &&
+            issueDate === "—" &&
+            dueDate === "—" &&
+            dtype === "Unknown";
+        emptyEl.style.display = allEmpty ? "block" : "none";
+    }
+}
+
+function initDocInfoCollapse() {
+    const btn = document.getElementById("toggleDocInfoBtn");
+    const content = document.getElementById("docInfoContent");
+    if (!btn || !content) return;
+
+    const stored = localStorage.getItem(STORAGE_KEYS.docInfoCollapsed);
+    const collapsed = stored === "true";
+    applyDocInfoCollapsed(collapsed);
+
+    btn.addEventListener("click", () => {
+        const nowCollapsed = content.style.display === "none";
+        applyDocInfoCollapsed(!nowCollapsed);
+    });
+}
+
+function applyDocInfoCollapsed(collapsed) {
+    const btn = document.getElementById("toggleDocInfoBtn");
+    const content = document.getElementById("docInfoContent");
+    if (!btn || !content) return;
+
+    if (collapsed) {
+        content.style.display = "none";
+        btn.textContent = "+";
+        btn.title = "Show document info";
+    } else {
+        content.style.display = "";
+        btn.textContent = "−";
+        btn.title = "Hide document info";
+    }
+
+    try {
+        localStorage.setItem(STORAGE_KEYS.docInfoCollapsed, String(collapsed));
+    } catch (e) {
+        // ignore
+    }
+}
+
+
 function loadSampleContent() {
     const sampleXml = `
 <invoice>
@@ -685,6 +950,8 @@ function loadSampleContent() {
 
     xmlEditor.setValue(sampleXml);
     xsltEditor.setValue(sampleXslt);
+
+     updateDocumentInfoFromXml();
 }
 
 function handleImageInsert(file, mode) {
