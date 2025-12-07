@@ -1,2 +1,8 @@
+# Python dependencies
 Flask>=3.0.0
 lxml>=5.0.0
+
+# Non-Python dependencies (install separately, NOT via pip):
+# - Java 11+ runtime
+# - Saxon-HE 12.x jar (download from Saxonica)
+# - xmlresolver 5.x jar (download from xmlresolver.org or Maven Central)
