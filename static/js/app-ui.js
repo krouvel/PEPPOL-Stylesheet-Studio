@@ -212,6 +212,8 @@ function initUI() {
                 } else {
                     addLog("Auto-update is off – click 'Generate HTML' to apply changes.", "info");
                 }
+            // allow selecting the same file again next time
+            xmlFileInput.value = "";
             };
             reader.readAsText(file);
         });
@@ -236,6 +238,8 @@ function initUI() {
                 } else {
                     addLog("Auto-update is off – click 'Generate HTML' to apply changes.", "info");
                 }
+                // allow selecting the same file again next time
+                xsltFileInput.value = "";
             };
             reader.readAsText(file);
         });
