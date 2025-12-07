@@ -234,23 +234,27 @@ function initUI() {
         toggleConfigPanelBtn.addEventListener("click", () => {
             const panel = document.getElementById("configPanel");
             const currentlyHidden = panel.classList.contains("config-hidden");
+
             if (currentlyHidden) {
+                // It was hidden → show it
                 panel.classList.remove("config-hidden");
                 toggleConfigPanelBtn.textContent = "Hide config";
             } else {
+                // It was visible → hide it
                 panel.classList.add("config-hidden");
                 toggleConfigPanelBtn.textContent = "Show config";
             }
+
+            // After toggling, compute actual visible state and store it
+            const visible = !panel.classList.contains("config-hidden");
             try {
-                localStorage.setItem(
-                    STORAGE_KEYS.configVisible,
-                    String(!currentlyHidden)
-                );
+                localStorage.setItem(STORAGE_KEYS.configVisible, String(visible));
             } catch (e) {
-                // ignore
+                // ignore storage errors
             }
         });
     }
+
 
     if (toggleLogPanelBtn) {
         toggleLogPanelBtn.addEventListener("click", () => {
