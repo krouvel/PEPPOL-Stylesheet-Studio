@@ -8,7 +8,12 @@ app = Flask(__name__)
 
 # ------------- CONFIG: Saxon integration -------------
 
+BASE_DIR = os.path.dirname(__file__)
+
 SAXON_ENABLED = True
+
+SAXON_JAR_PATH = os.path.join(BASE_DIR, "tools", "saxon", "Saxon-HE-12.0.jar")
+XMLRESOLVER_JAR_PATH = os.path.join(BASE_DIR, "tools", "saxon", "xmlresolver-5.2.1.jar")
 
 # Absolute or relative path to your Saxon-HE jar
 BASE_DIR = os.path.dirname(__file__)
@@ -28,6 +33,20 @@ XMLRESOLVER_JAR_PATH = os.path.join(
 
 
 # ------------- LXML (XSLT 1.0) ENGINE -------------
+
+if SAXON_ENABLED:
+    try:
+        from tools.saxon.get_jars import ensure_saxon_jars
+
+        def _log(msg):
+            # you can later hook this into your UI log if you want,
+            # for now it's just console output
+            print(msg)
+
+        ensure_saxon_jars(log_func=_log)
+    except Exception as e:
+        # Don't crash app if download fails (no internet, etc.)
+        print(f"[WARN] Could not ensure Saxon jars: {e}")
 
 def transform_with_lxml(xml_str: str, xslt_str: str):
     """
