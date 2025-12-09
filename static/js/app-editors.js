@@ -595,3 +595,58 @@ function initEditorSearchUI() {
     xmlEditor.addKeyMap(searchKeyMap);
     xsltEditor.addKeyMap(searchKeyMap);
 }
+
+// ---- Jump from log entry to editor line ----
+
+let lastErrorHighlight = null;
+
+function clearLastErrorHighlight() {
+  if (
+    lastErrorHighlight &&
+    lastErrorHighlight.editor &&
+    lastErrorHighlight.handle
+  ) {
+    lastErrorHighlight.editor.removeLineClass(
+      lastErrorHighlight.handle,
+      "background",
+      "cm-error-line"
+    );
+  }
+  lastErrorHighlight = null;
+}
+
+/**
+ * Jump to a specific line/column in the XML or XSLT editor and
+ * highlight the line for ~1 second.
+ *
+ * @param {"xml"|"xslt"} source
+ * @param {number} line   1-based line number
+ * @param {number} [column] 1-based column number (optional)
+ */
+function jumpToEditorLocation(source, line, column) {
+  const editor = source === "xml" ? xmlEditor : xsltEditor;
+  if (!editor) return;
+
+  const lineNumber = parseInt(line, 10);
+  if (!lineNumber || lineNumber < 1) return;
+
+  const cmLine = lineNumber - 1;
+  const ch = column && column > 0 ? column - 1 : 0;
+
+  clearLastErrorHighlight();
+
+  editor.focus();
+  editor.setCursor({ line: cmLine, ch });
+  editor.scrollIntoView({ line: cmLine, ch }, 80);
+
+  const handle = editor.getLineHandle(cmLine);
+  if (!handle) return;
+
+  editor.addLineClass(handle, "background", "cm-error-line");
+  lastErrorHighlight = { editor, handle };
+
+  // Remove highlight after ~1 second
+  setTimeout(() => {
+    clearLastErrorHighlight();
+  }, 1000);
+}

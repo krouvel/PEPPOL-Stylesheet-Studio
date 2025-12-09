@@ -42,14 +42,85 @@ const XML_XSLT_HINT_ITEMS = [
 ];
 
 function addLog(message, level = "info") {
-    const panel = document.getElementById("log-panel");
-    if (!panel) return;
-    const entry = document.createElement("div");
-    entry.className = `log-entry ${level}`;
-    const time = new Date().toLocaleTimeString();
-    entry.textContent = `[${time}] ${message}`;
-    panel.appendChild(entry);
-    panel.scrollTop = panel.scrollHeight;
+  const panel = document.getElementById("log-panel");
+  if (!panel) return;
+
+  const entry = document.createElement("div");
+  entry.className = `log-entry ${level}`;
+
+  const time = new Date().toLocaleTimeString();
+
+  const timeSpan = document.createElement("span");
+  timeSpan.className = "log-time";
+  timeSpan.textContent = `[${time}] `;
+
+  const msgSpan = document.createElement("span");
+  msgSpan.className = "log-message";
+  msgSpan.textContent = message;
+
+  entry.appendChild(timeSpan);
+  entry.appendChild(msgSpan);
+
+  // ---- Try to detect line/column from Saxon (and similar) messages ----
+  let source = null;
+  let line = null;
+  let column = null;
+
+  // Example:
+  // [1:41:28 AM] Error on line 9 column 5 of stylesheet.xslt:
+  const m1 = message.match(
+    /Error on line\s+(\d+)\s+column\s+(\d+)\s+of\s+([^\s:]+)\s*:/i
+  );
+  if (m1) {
+    line = parseInt(m1[1], 10);
+    column = parseInt(m1[2], 10);
+    const file = m1[3].toLowerCase();
+    if (file.endsWith(".xslt")) {
+      source = "xslt";
+    } else if (file.endsWith(".xml")) {
+      source = "xml";
+    }
+  }
+
+  // Example:
+  // ... stylesheet.xslt; lineNumber: 9; columnNumber: 5; ...
+  if (!source || !line) {
+    const m2 = message.match(/lineNumber:\s*(\d+);\s*columnNumber:\s*(\d+)/i);
+    if (m2) {
+      line = parseInt(m2[1], 10);
+      column = parseInt(m2[2], 10);
+      if (/stylesheet\.xslt/i.test(message) || /\.xslt\b/i.test(message)) {
+        source = "xslt";
+      } else if (/input\.xml/i.test(message) || /\.xml\b/i.test(message)) {
+        source = "xml";
+      }
+    }
+  }
+
+  // If we found a source + line → make entry clickable
+  if (source && line) {
+    entry.classList.add("log-entry-clickable");
+    entry.dataset.source = source; // "xml" or "xslt"
+    entry.dataset.line = String(line);
+    if (column) {
+      entry.dataset.column = String(column);
+    }
+
+    entry.title = `Click to jump to ${source.toUpperCase()} line ${line}`;
+
+    entry.addEventListener("click", () => {
+      if (typeof jumpToEditorLocation === "function") {
+        const ln = parseInt(entry.dataset.line, 10);
+        const col = entry.dataset.column
+          ? parseInt(entry.dataset.column, 10)
+          : undefined;
+        jumpToEditorLocation(entry.dataset.source, ln, col);
+      }
+    });
+  }
+
+  panel.appendChild(entry);
+  panel.scrollTop = panel.scrollHeight;
 }
 
 function buildTimestamp() {

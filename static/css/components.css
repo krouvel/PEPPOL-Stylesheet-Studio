@@ -78,6 +78,32 @@
     font-weight: 500;
 }
 
+.log-entry.warning {
+  color: #ca8a04; /* amber-ish */
+}
+
+/* Time part of log entry */
+.log-time {
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Clickable log entries (with position info) */
+.log-entry.log-entry-clickable {
+  cursor: pointer;
+  text-decoration: underline dotted;
+}
+
+.log-entry.log-entry-clickable:hover {
+  background-color: rgba(59, 130, 246, 0.06);
+}
+
+/* Temporary error highlight inside CodeMirror */
+.CodeMirror .cm-error-line {
+  background-color: rgba(248, 113, 113, 0.3); /* soft red */
+}
+
+
 /* Document info panel */
 
 .doc-info-content {

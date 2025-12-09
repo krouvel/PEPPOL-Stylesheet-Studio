@@ -48,9 +48,50 @@ if SAXON_ENABLED:
         # Don't crash app if download fails (no internet, etc.)
         print(f"[WARN] Could not ensure Saxon jars: {e}")
 
+def _log_xml_syntax_error(logs, source: str, e: Exception):
+    """
+    Pushes a formatted, single log line that includes source (xml/xslt)
+    and line/column as a prefix like:
+      [ERROR] [SRC:xml L:12 C:3] message...
+    """
+    line = None
+    col = None
+
+    pos = getattr(e, "position", None)
+    if isinstance(pos, tuple) and len(pos) >= 2:
+        line, col = pos[0], pos[1]
+
+    base_msg = getattr(e, "msg", None) or str(e)
+
+    if line is not None:
+        logs.append(
+            f"[ERROR] [SRC:{source} L:{line} C:{col}] {base_msg}"
+        )
+    else:
+        logs.append(
+            f"[ERROR] {source.upper()} syntax error: {base_msg}"
+        )
+
+    # Optional: extra lines from error_log if available
+    try:
+        for entry in getattr(e, "error_log", []) or []:
+            if entry.line:
+                logs.append(
+                    f"{entry.level_name}: {entry.message.strip()} (line {entry.line})"
+                )
+            else:
+                logs.append(
+                    f"{entry.level_name}: {entry.message.strip()}"
+                )
+    except Exception:
+        # best-effort only
+        pass
+
+
 def transform_with_lxml(xml_str: str, xslt_str: str):
     """
     Transform XML using lxml (libxslt, XSLT 1.0).
+
     Returns (html, logs, error_message). error_message is None on success.
     """
     logs = []
@@ -59,6 +100,7 @@ def transform_with_lxml(xml_str: str, xslt_str: str):
             msg = "XML content is empty."
             logs.append(msg)
             return "", logs, msg
+
         if not xslt_str.strip():
             msg = "XSLT content is empty."
             logs.append(msg)
@@ -72,8 +114,21 @@ def transform_with_lxml(xml_str: str, xslt_str: str):
                 "so advanced PEPPOL stylesheets may not work correctly here."
             )
 
-        xml_doc = etree.fromstring(xml_str.encode("utf-8"))
-        xslt_doc = etree.XML(xslt_str.encode("utf-8"))
+        # --- Parse XML with syntax error handling ---
+        try:
+            xml_doc = etree.fromstring(xml_str.encode("utf-8"))
+        except etree.XMLSyntaxError as e:
+            _log_xml_syntax_error(logs, "xml", e)
+            return "", logs, str(e)
+
+        # --- Parse XSLT with syntax error handling ---
+        try:
+            xslt_doc = etree.XML(xslt_str.encode("utf-8"))
+        except etree.XMLSyntaxError as e:
+            _log_xml_syntax_error(logs, "xslt", e)
+            return "", logs, str(e)
+
+        # --- Apply transform ---
         transform = etree.XSLT(xslt_doc)
         result_tree = transform(xml_doc)
         html = str(result_tree)
@@ -82,11 +137,15 @@ def transform_with_lxml(xml_str: str, xslt_str: str):
     except etree.XSLTApplyError as e:
         logs.append(f"XSLTApplyError: {str(e)}")
         for entry in e.error_log:
+            # add [SRC:xslt ...] prefix so it becomes clickable
+            prefix = ""
+            if entry.line:
+                prefix = f"[SRC:xslt L:{entry.line}] "
             logs.append(
-                f"{entry.level_name}: {entry.message.strip()} (line {entry.line})"
+                f"{prefix}{entry.level_name}: "
+                f"{entry.message.strip()} (line {entry.line})"
             )
         return "", logs, str(e)
-
     except Exception as e:
         logs.append(f"Unexpected error in lxml engine: {str(e)}")
         return "", logs, str(e)
