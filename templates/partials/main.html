@@ -34,7 +34,23 @@
                 </div>
                 <button id="collapseXmlBtn" class="collapse-btn" title="Hide XML editor">−</button>
             </div>
-            <textarea id="xmlEditor"></textarea>
+            <!-- XML editor card body -->
+            <div class="editor-card-body">
+                <!-- XML search bar -->
+                <div class="editor-search-bar" id="xmlSearchBar">
+                    <input
+                        type="text"
+                        id="xmlSearchInput"
+                        placeholder="Search XML (Ctrl+F)"
+                    />
+                    <span class="editor-search-count" id="xmlSearchCount">0/0</span>
+                    <button type="button" id="xmlSearchPrevBtn" title="Previous (Shift+Enter / Shift+F3)">↑</button>
+                    <button type="button" id="xmlSearchNextBtn" title="Next (Enter / F3)">↓</button>
+                    <button type="button" id="xmlSearchCloseBtn" title="Clear & close">×</button>
+                </div>
+
+                <textarea id="xmlEditor" name="xmlEditor"></textarea>
+            </div>
         </div>
 
         <!-- XSLT editor -->
@@ -58,7 +74,23 @@
                 </div>
                 <button id="collapseXsltBtn" class="collapse-btn" title="Hide XSLT editor">−</button>
             </div>
-            <textarea id="xsltEditor"></textarea>
+            <!-- XSLT editor card body -->
+            <div class="editor-card-body">
+                <!-- XSLT search bar -->
+                <div class="editor-search-bar" id="xsltSearchBar">
+                    <input
+                        type="text"
+                        id="xsltSearchInput"
+                        placeholder="Search XSLT (Ctrl+F)"
+                    />
+                    <span class="editor-search-count" id="xsltSearchCount">0/0</span>
+                    <button type="button" id="xsltSearchPrevBtn" title="Previous (Shift+Enter / Shift+F3)">↑</button>
+                    <button type="button" id="xsltSearchNextBtn" title="Next (Enter / F3)">↓</button>
+                    <button type="button" id="xsltSearchCloseBtn" title="Clear & close">×</button>
+                </div>
+
+                <textarea id="xsltEditor" name="xsltEditor"></textarea>
+            </div>
         </div>
 
     </section>

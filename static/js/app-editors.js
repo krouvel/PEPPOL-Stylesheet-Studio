@@ -22,6 +22,178 @@ function xmlXsltHint(cm) {
     };
 }
 
+// -------- Per-editor search (XML / XSLT) --------
+
+const editorSearchState = {
+    xml: { query: "", matches: [], index: -1, markers: [] },
+    xslt: { query: "", matches: [], index: -1, markers: [] }
+};
+
+const editorSearchUI = {
+    xml: {},
+    xslt: {}
+};
+
+function getEditorKeyFromInstance(cm) {
+    if (cm === xmlEditor) return "xml";
+    if (cm === xsltEditor) return "xslt";
+    return null;
+}
+
+function getEditorByKey(key) {
+    return key === "xml" ? xmlEditor : xsltEditor;
+}
+
+function clearEditorSearch(key) {
+    const state = editorSearchState[key];
+    const ui = editorSearchUI[key];
+    if (!state) return;
+
+    // clear markers
+    state.markers.forEach(m => m.clear());
+    state.markers = [];
+    state.matches = [];
+    state.index = -1;
+    state.query = "";
+
+    if (ui && ui.input) ui.input.value = "";
+    if (ui && ui.count) ui.count.textContent = "0/0";
+}
+
+function updateEditorSearchCount(key) {
+    const state = editorSearchState[key];
+    const ui = editorSearchUI[key];
+    if (!state || !ui || !ui.count) return;
+
+    const total = state.matches.length;
+    const current = state.index >= 0 ? state.index + 1 : 0;
+    ui.count.textContent = total ? `${current}/${total}` : "0/0";
+}
+
+function rebuildEditorSearch(key) {
+    const state = editorSearchState[key];
+    const ui = editorSearchUI[key];
+    const editor = getEditorByKey(key);
+    if (!state || !ui || !editor) return;
+
+    // clear previous marks
+    state.markers.forEach(m => m.clear());
+    state.markers = [];
+    state.matches = [];
+    state.index = -1;
+
+    const query = (ui.input.value || "").trim();
+    state.query = query;
+
+    if (!query) {
+        updateEditorSearchCount(key);
+        return;
+    }
+
+    const text = editor.getValue();
+    if (!text) {
+        updateEditorSearchCount(key);
+        return;
+    }
+
+    const haystack = text.toLowerCase();
+    const needle = query.toLowerCase();
+
+    let fromIndex = 0;
+    while (true) {
+        const idx = haystack.indexOf(needle, fromIndex);
+        if (idx === -1) break;
+
+        const from = editor.posFromIndex(idx);
+        const to = editor.posFromIndex(idx + query.length);
+        const marker = editor.markText(from, to, { className: "cm-search-highlight" });
+
+        state.matches.push({ from, to });
+        state.markers.push(marker);
+
+        fromIndex = idx + query.length;
+    }
+
+    if (state.matches.length) {
+        state.index = 0;
+        const first = state.matches[0];
+        editor.setSelection(first.from, first.to);
+        editor.scrollIntoView(first.from, 80);
+    }
+
+    updateEditorSearchCount(key);
+}
+
+function jumpEditorSearch(key, direction) {
+    const state = editorSearchState[key];
+    const editor = getEditorByKey(key);
+    if (!state || !editor || !state.matches.length) return;
+
+    const len = state.matches.length;
+    state.index = (state.index + direction + len) % len;
+    const match = state.matches[state.index];
+
+    editor.setSelection(match.from, match.to);
+    editor.scrollIntoView(match.from, 80);
+    updateEditorSearchCount(key);
+}
+
+function closeEditorSearch(key) {
+    const ui = editorSearchUI[key];
+    const editor = getEditorByKey(key);
+    if (!ui || !editor) return;
+
+    clearEditorSearch(key);
+    if (ui.bar) ui.bar.classList.remove("visible");
+    editor.focus();
+}
+
+function openEditorSearch(cm) {
+    const key = getEditorKeyFromInstance(cm);
+    if (!key) return;
+
+    const ui = editorSearchUI[key];
+    const state = editorSearchState[key];
+    if (!ui || !ui.bar || !ui.input) return;
+
+    ui.bar.classList.add("visible");
+
+    // preload with current selection if nothing searched yet
+    if (!state.query && cm.somethingSelected()) {
+        const sel = cm.getSelection().trim();
+        if (sel) ui.input.value = sel;
+    }
+
+    ui.input.focus();
+    ui.input.select();
+
+    rebuildEditorSearch(key);
+}
+
+function nextEditorSearch(cm) {
+    const key = getEditorKeyFromInstance(cm);
+    if (!key) return;
+
+    const state = editorSearchState[key];
+    if (!state.matches.length) {
+        openEditorSearch(cm);
+    } else {
+        jumpEditorSearch(key, +1);
+    }
+}
+
+function prevEditorSearch(cm) {
+    const key = getEditorKeyFromInstance(cm);
+    if (!key) return;
+
+    const state = editorSearchState[key];
+    if (!state.matches.length) {
+        openEditorSearch(cm);
+    } else {
+        jumpEditorSearch(key, -1);
+    }
+}
+
 function initEditors() {
     const xmlTextarea = document.getElementById("xmlEditor");
     const xsltTextarea = document.getElementById("xsltEditor");
@@ -64,6 +236,9 @@ function initEditors() {
         ro.observe(xmlEditor.getWrapperElement());
         ro.observe(xsltEditor.getWrapperElement());
     }
+
+    // initialize per-editor search UI
+    initEditorSearchUI();
 }
 
 function autoDetectXsltVersion() {
@@ -335,4 +510,88 @@ function toggleEditorCollapsed(editorInstance, buttonEl, storageKey) {
     const wrapper = editorInstance.getWrapperElement();
     const currentlyCollapsed = wrapper.style.display === "none";
     setEditorCollapsed(editorInstance, buttonEl, !currentlyCollapsed, storageKey);
+}
+
+function initEditorSearchUI() {
+    editorSearchUI.xml = {
+        bar: document.getElementById("xmlSearchBar"),
+        input: document.getElementById("xmlSearchInput"),
+        count: document.getElementById("xmlSearchCount"),
+        prevBtn: document.getElementById("xmlSearchPrevBtn"),
+        nextBtn: document.getElementById("xmlSearchNextBtn"),
+        closeBtn: document.getElementById("xmlSearchCloseBtn")
+    };
+
+    editorSearchUI.xslt = {
+        bar: document.getElementById("xsltSearchBar"),
+        input: document.getElementById("xsltSearchInput"),
+        count: document.getElementById("xsltSearchCount"),
+        prevBtn: document.getElementById("xsltSearchPrevBtn"),
+        nextBtn: document.getElementById("xsltSearchNextBtn"),
+        closeBtn: document.getElementById("xsltSearchCloseBtn")
+    };
+
+    ["xml", "xslt"].forEach(function (key) {
+        const ui = editorSearchUI[key];
+        if (!ui || !ui.bar) return;
+
+        // typing → rebuild matches
+        ui.input.addEventListener("input", function () {
+            rebuildEditorSearch(key);
+        });
+
+        // Enter / Shift+Enter / Esc in the input
+        ui.input.addEventListener("keydown", function (ev) {
+            if (ev.key === "Enter") {
+                ev.preventDefault();
+                if (ev.shiftKey) {
+                    jumpEditorSearch(key, -1);
+                } else {
+                    jumpEditorSearch(key, +1);
+                }
+            } else if (ev.key === "Escape") {
+                ev.preventDefault();
+                closeEditorSearch(key);
+            }
+        });
+
+        if (ui.nextBtn) {
+            ui.nextBtn.addEventListener("click", function () {
+                jumpEditorSearch(key, +1);
+            });
+        }
+        if (ui.prevBtn) {
+            ui.prevBtn.addEventListener("click", function () {
+                jumpEditorSearch(key, -1);
+            });
+        }
+        if (ui.closeBtn) {
+            ui.closeBtn.addEventListener("click", function () {
+                closeEditorSearch(key);
+            });
+        }
+
+        if (ui.count) {
+            ui.count.textContent = "0/0";
+        }
+    });
+
+    // Keyboard shortcuts inside editors
+    const searchKeyMap = {
+        "Ctrl-F": function (cm) {
+            openEditorSearch(cm);
+        },
+        "Cmd-F": function (cm) {
+            openEditorSearch(cm);
+        },
+        "F3": function (cm) {
+            nextEditorSearch(cm);
+        },
+        "Shift-F3": function (cm) {
+            prevEditorSearch(cm);
+        }
+    };
+
+    xmlEditor.addKeyMap(searchKeyMap);
+    xsltEditor.addKeyMap(searchKeyMap);
 }

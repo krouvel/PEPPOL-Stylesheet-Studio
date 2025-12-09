@@ -108,3 +108,53 @@
     color: var(--text-muted);
     font-style: italic;
 }
+
+/* --- Editor search bars (XML / XSLT) --- */
+
+.editor-search-bar {
+  display: none; /* hidden by default */
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  background: #f5f5f5;
+  border-bottom: 1px solid #ddd;
+  font-size: 0.8rem;
+}
+
+.editor-search-bar.visible {
+  display: flex;
+}
+
+.editor-search-bar input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0.2rem 0.4rem;
+  border-radius: 3px;
+  border: 1px solid #ccc;
+  font-size: 0.8rem;
+}
+
+.editor-search-count {
+  white-space: nowrap;
+  opacity: 0.8;
+  font-variant-numeric: tabular-nums;
+}
+
+.editor-search-bar button {
+  border: 1px solid #ccc;
+  background: #fff;
+  padding: 0.15rem 0.4rem;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  line-height: 1;
+}
+
+.editor-search-bar button:hover {
+  filter: brightness(0.97);
+}
+
+/* Highlight for matches inside CodeMirror editors */
+.cm-search-highlight {
+  background-color: rgba(255, 235, 59, 0.6); /* soft yellow */
+}
