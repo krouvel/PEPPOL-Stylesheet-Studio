@@ -1,5 +1,9 @@
 // app-editors.js
-// CodeMirror editors, XML/XSLT helpers, doc info, collapse logic
+// CodeMirror editors, XML/XSLT helpers, doc info, collapse logic, preview→XSLT jump
+
+let lastXsltJumpHighlight = null;
+
+/* -------- CodeMirror hint for XML/XSLT -------- */
 
 function xmlXsltHint(cm) {
     const cur = cm.getCursor();
@@ -377,6 +381,89 @@ ${svgText}
         };
         reader.readAsDataURL(file);
     }
+}
+
+/* -------- Preview → XSLT jump (Ctrl+click in preview) -------- */
+
+function clearXsltJumpHighlight() {
+  if (!xsltEditor || lastXsltJumpHighlight == null) return;
+
+  try {
+    xsltEditor.removeLineClass(
+      lastXsltJumpHighlight,
+      "background",
+      "cm-preview-jump-line"
+    );
+  } catch (e) {
+    // ignore
+  }
+  lastXsltJumpHighlight = null;
+}
+
+/**
+ * Best-effort: use clicked preview text to locate the corresponding place in XSLT.
+ * Works well for static labels/headings that also exist literally in the stylesheet.
+ */
+function jumpXsltToPreviewText(rawText) {
+  if (!xsltEditor) {
+    addLog("XSLT editor is not ready, cannot jump from preview.", "error");
+    return;
+  }
+
+  const text = (rawText || "").replace(/\s+/g, " ").trim();
+  if (!text) {
+    addLog("Clicked preview element has no text to locate in XSLT.", "info");
+    return;
+  }
+
+  const content = xsltEditor.getValue();
+  if (!content) {
+    addLog(
+      "XSLT editor is empty, cannot locate clicked preview content.",
+      "info"
+    );
+    return;
+  }
+
+  // First try: a reasonable-length prefix of the whole text
+  let snippet = text.length <= 80 ? text : text.slice(0, 80);
+  let index = content.indexOf(snippet);
+
+  // Second try: longest “word” (>= 4 chars)
+  if (index === -1) {
+    const words = text
+      .split(/\s+/)
+      .filter((w) => w.length >= 4)
+      .sort((a, b) => b.length - a.length);
+
+    for (let i = 0; i < words.length; i++) {
+      index = content.indexOf(words[i]);
+      if (index !== -1) {
+        snippet = words[i];
+        break;
+      }
+    }
+  }
+
+  if (index === -1) {
+    addLog("Could not locate clicked preview content in XSLT.", "warning");
+    return;
+  }
+
+  const pos = xsltEditor.posFromIndex(index);
+
+  clearXsltJumpHighlight();
+  lastXsltJumpHighlight = xsltEditor.addLineClass(
+    pos.line,
+    "background",
+    "cm-preview-jump-line"
+  );
+
+  xsltEditor.scrollIntoView({ line: pos.line, ch: pos.ch }, 100);
+  xsltEditor.setCursor(pos);
+  xsltEditor.focus();
+
+  addLog("Jumped to XSLT using clicked preview text.", "info");
 }
 
 // -------- Document info panel --------

@@ -330,4 +330,8 @@ body.xml-view-mode-tree #xmlTreeContainer {
   color: var(--text-muted);
 }
 
+/* Highlight when jumping from HTML preview into XSLT editor */
+.CodeMirror .cm-preview-jump-line {
+  background-color: rgba(96, 165, 250, 0.35); /* soft blue */
+}
 

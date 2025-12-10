@@ -80,6 +80,47 @@ function doTransform() {
         });
 }
 
+/**
+ * Attach interactions inside the HTML preview document.
+ * - Ctrl + Left click on any element will try to jump into the XSLT editor.
+ */
+function attachPreviewInteractions(doc) {
+  if (!doc) return;
+
+  doc.addEventListener("click", function (e) {
+    // Only react on Ctrl + Left mouse button
+    if (!e.ctrlKey || e.button !== 0) {
+      return;
+    }
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    const target = e.target;
+    if (!target) return;
+
+    const rawText = (target.textContent || "").trim();
+    if (!rawText) {
+      addLog(
+        "Clicked preview element has no text to locate in XSLT.",
+        "info"
+      );
+      return;
+    }
+
+    if (typeof jumpXsltToPreviewText !== "function") {
+      addLog(
+        "Cannot jump to XSLT – helper function is not available.",
+        "error"
+      );
+      return;
+    }
+
+    // Best-effort: try to use the clicked text to locate the relevant part in XSLT
+    jumpXsltToPreviewText(rawText);
+  });
+}
+
 function updatePreview(html) {
     const frame = document.getElementById("previewFrame");
     if (!frame) return;
@@ -88,6 +129,9 @@ function updatePreview(html) {
     doc.open();
     doc.write(html || "<!DOCTYPE html><html><body><p>No HTML result yet.</p></body></html>");
     doc.close();
+
+  // Wire Ctrl+Click → XSLT jump inside the freshly written document
+  attachPreviewInteractions(doc);
 
     const mainLayout = document.getElementById("mainLayout");
     const isHorizontal =
