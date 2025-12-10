@@ -853,6 +853,45 @@ function buildXmlTreeItem(node) {
     label.appendChild(nameSpan);
     li.appendChild(label);
 
+    const metaSpan = document.createElement("span");
+    metaSpan.className = "xml-tree-meta";
+
+    // Attributes: @attr="value"
+    const attrParts = [];
+    if (node.attributes && node.attributes.length) {
+        for (let i = 0; i < node.attributes.length; i++) {
+            const a = node.attributes[i];
+            if (!a) continue;
+            attrParts.push(`${a.name}="${a.value}"`);
+        }
+    }
+
+    // Direct text content (ignoring child elements)
+    const textParts = [];
+    Array.from(node.childNodes).forEach((child) => {
+        if (child.nodeType === 3) {
+            const txt = child.nodeValue.trim();
+            if (txt) textParts.push(txt);
+        }
+    });
+    let textSnippet = textParts.join(" ");
+    if (textSnippet.length > 80) {
+        textSnippet = textSnippet.slice(0, 77) + "…";
+    }
+
+    let snippet = "";
+    if (attrParts.length) {
+        snippet += " @" + attrParts.join(" @");
+    }
+    if (textSnippet) {
+        snippet += (snippet ? " " : "") + `"${textSnippet}"`;
+    }
+
+    if (snippet) {
+        metaSpan.textContent = " " + snippet;
+        label.appendChild(metaSpan);
+    }
+
     // XPath for this node
     const xpath = buildXPathForElement(node);
     li.dataset.xpath = xpath;
@@ -921,7 +960,7 @@ function buildXPathForElement(node) {
             ? current.prefix + ":" + current.localName
             : current.localName || current.nodeName;
 
-        segments.unshift(name + "[" + index + "]");
+        segments.unshift(index > 1 ? name + "[" + index + "]" : name);
         current = current.parentNode;
         if (current && current.nodeType === 9) break; // Document
     }

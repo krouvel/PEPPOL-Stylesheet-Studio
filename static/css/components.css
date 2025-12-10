@@ -316,4 +316,11 @@ body.xml-view-mode-tree #xmlTreeContainer {
   color: var(--text-muted);
 }
 
+.xml-tree-meta {
+  margin-left: 0.25rem;
+  font-family: monospace;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
 
