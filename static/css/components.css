@@ -184,3 +184,136 @@
 .cm-search-highlight {
   background-color: rgba(255, 235, 59, 0.6); /* soft yellow */
 }
+
+/* --- XML Text / Tree toggle + tree view --- */
+
+.xml-view-toggle {
+  display: inline-flex;
+  gap: 0.25rem;
+  margin-right: 0.5rem;
+  font-size: 0.75rem;
+}
+
+.xml-view-toggle-btn {
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.xml-view-toggle-btn.active {
+  background: #e5f0ff;
+  border-color: #2563eb;
+  color: #1d4ed8;
+}
+
+/* Tree container lives below the XML editor */
+.xml-tree-container {
+  border: 1px solid var(--border);
+  border-radius: 0 0 0.6rem 0.6rem;
+  border-top: none;
+  background: #f9fafb;
+  max-height: 60vh;
+  overflow: auto;
+  font-size: 0.78rem;
+}
+
+/* Global mode switching */
+body.xml-view-mode-text .xml-editor-wrapper {
+  display: block;
+}
+
+body.xml-view-mode-tree .xml-editor-wrapper {
+  display: none;
+}
+
+body.xml-view-mode-text #xmlTreeContainer {
+  display: none;
+}
+
+body.xml-view-mode-tree #xmlTreeContainer {
+  display: block;
+}
+
+.xml-tree-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.25rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  background: #eef2ff;
+
+  /* NEW: keep the toolbar visible while scrolling the tree */
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.xml-tree-path {
+  flex: 1 1 auto;
+  margin-right: 0.5rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.xml-tree-copy-btn {
+  font-size: 0.7rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.xml-tree-root,
+.xml-tree-children {
+  list-style: none;
+  margin: 0;
+  padding-left: 0.75rem;
+}
+
+.xml-tree-item {
+  margin: 0;
+  padding: 0.05rem 0;
+}
+
+.xml-tree-node {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  cursor: pointer;
+}
+
+.xml-tree-toggle {
+  width: 0.9rem;
+  text-align: center;
+  font-size: 0.7rem;
+  user-select: none;
+}
+
+.xml-tree-toggle-leaf {
+  opacity: 0.3;
+}
+
+.xml-tree-name {
+  font-family: monospace;
+}
+
+.xml-tree-item.collapsed > .xml-tree-children {
+  display: none;
+}
+
+.xml-tree-item.selected > .xml-tree-node {
+  background: #dbeafe;
+  border-radius: 0.3rem;
+}
+
+.xml-tree-empty,
+.xml-tree-error {
+  padding: 0.25rem 0.5rem;
+  color: var(--text-muted);
+}
+
+

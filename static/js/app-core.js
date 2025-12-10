@@ -18,6 +18,10 @@ const STORAGE_KEYS = {
 };
 
 let xmlEditor, xsltEditor;
+let xmlViewMode = "text"; // "text" | "tree"
+let xmlTreeContainer = null;
+let xmlTreePathLabel = null;
+let xmlTreeSelectedItem = null;
 let lastHtml = "";
 let autoUpdate = true;
 let transformTimeout = null;

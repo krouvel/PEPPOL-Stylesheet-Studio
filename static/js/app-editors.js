@@ -25,8 +25,8 @@ function xmlXsltHint(cm) {
 // -------- Per-editor search (XML / XSLT) --------
 
 const editorSearchState = {
-    xml: { query: "", matches: [], index: -1, markers: [] },
-    xslt: { query: "", matches: [], index: -1, markers: [] }
+    xml: {query: "", matches: [], index: -1, markers: []},
+    xslt: {query: "", matches: [], index: -1, markers: []}
 };
 
 const editorSearchUI = {
@@ -106,9 +106,9 @@ function rebuildEditorSearch(key) {
 
         const from = editor.posFromIndex(idx);
         const to = editor.posFromIndex(idx + query.length);
-        const marker = editor.markText(from, to, { className: "cm-search-highlight" });
+        const marker = editor.markText(from, to, {className: "cm-search-highlight"});
 
-        state.matches.push({ from, to });
+        state.matches.push({from, to});
         state.markers.push(marker);
 
         fromIndex = idx + query.length;
@@ -208,9 +208,14 @@ function initEditors() {
     xmlEditor = CodeMirror.fromTextArea(xmlTextarea, commonOptions);
     xsltEditor = CodeMirror.fromTextArea(xsltTextarea, commonOptions);
 
+    const xmlWrapper = xmlEditor.getWrapperElement();
+    if (xmlWrapper) {
+        xmlWrapper.classList.add("xml-editor-wrapper");
+    }
+
     const hintKeymap = {
         "Ctrl-Space": function (cm) {
-            CodeMirror.showHint(cm, xmlXsltHint, { completeSingle: true });
+            CodeMirror.showHint(cm, xmlXsltHint, {completeSingle: true});
         }
     };
     xmlEditor.setOption("extraKeys", hintKeymap);
@@ -239,6 +244,9 @@ function initEditors() {
 
     // initialize per-editor search UI
     initEditorSearchUI();
+
+    // XML Text/Tree view toggle
+    initXmlViewToggle();
 }
 
 function autoDetectXsltVersion() {
@@ -484,6 +492,15 @@ function restoreEditorCollapseState() {
 
 function setEditorCollapsed(editorInstance, buttonEl, collapsed, storageKey, skipSave = false) {
     const wrapper = editorInstance.getWrapperElement();
+
+    if (editorInstance === xmlEditor && xmlTreeContainer) {
+        if (collapsed) {
+            xmlTreeContainer.style.display = "none";
+        } else {
+            xmlTreeContainer.style.display = "";
+        }
+    }
+
     if (!wrapper) return;
 
     if (collapsed) {
@@ -596,23 +613,329 @@ function initEditorSearchUI() {
     xsltEditor.addKeyMap(searchKeyMap);
 }
 
+// -------- XML Text / Tree view toggle --------
+
+function initXmlViewToggle() {
+    if (!xmlEditor) return;
+
+    const collapseBtn = document.getElementById("collapseXmlBtn");
+    const xmlWrapper = xmlEditor.getWrapperElement();
+    if (!collapseBtn || !xmlWrapper) return;
+
+    // ---- Build header toggle: [Text] [Tree] ----
+    const header = collapseBtn.parentElement || collapseBtn.closest(".editor-header") || collapseBtn;
+    const toggleWrapper = document.createElement("div");
+    toggleWrapper.className = "xml-view-toggle";
+
+    const textBtn = document.createElement("button");
+    textBtn.type = "button";
+    textBtn.className = "btn-sm xml-view-toggle-btn";
+    textBtn.textContent = "Text";
+
+    const treeBtn = document.createElement("button");
+    treeBtn.type = "button";
+    treeBtn.className = "btn-sm xml-view-toggle-btn";
+    treeBtn.textContent = "Tree";
+
+    toggleWrapper.appendChild(textBtn);
+    toggleWrapper.appendChild(treeBtn);
+
+    // Put the toggle before the collapse button in the header
+    header.insertBefore(toggleWrapper, collapseBtn);
+
+    // ---- Build tree container below XML editor ----
+    xmlTreeContainer = document.createElement("div");
+    xmlTreeContainer.id = "xmlTreeContainer";
+    xmlTreeContainer.className = "xml-tree-container";
+
+    // Toolbar with XPath display + copy button
+    const toolbar = document.createElement("div");
+    toolbar.className = "xml-tree-toolbar";
+
+    xmlTreePathLabel = document.createElement("div");
+    xmlTreePathLabel.className = "xml-tree-path";
+    xmlTreePathLabel.textContent = "XPath: —";
+    xmlTreePathLabel.dataset.xpath = "";
+
+    const copyBtn = document.createElement("button");
+    copyBtn.type = "button";
+    copyBtn.className = "btn-sm xml-tree-copy-btn";
+    copyBtn.textContent = "Copy";
+    copyBtn.addEventListener("click", () => {
+        const xpath = xmlTreePathLabel.dataset.xpath || "";
+        if (!xpath) return;
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard
+                .writeText(xpath)
+                .then(() => addLog("Copied XPath to clipboard.", "info"))
+                .catch(() => {
+                    // fall back for weird/old browsers or non-secure context
+                    fallbackCopyToClipboard(xpath);
+                });
+        } else {
+            // no modern clipboard → fallback
+            fallbackCopyToClipboard(xpath);
+        }
+    });
+
+
+    toolbar.appendChild(xmlTreePathLabel);
+    toolbar.appendChild(copyBtn);
+
+    const treeRoot = document.createElement("ul");
+    treeRoot.className = "xml-tree-root";
+
+    xmlTreeContainer.appendChild(toolbar);
+    xmlTreeContainer.appendChild(treeRoot);
+
+    // Insert after CodeMirror wrapper
+    xmlWrapper.parentNode.insertBefore(xmlTreeContainer, xmlWrapper.nextSibling);
+
+    // ---- Mode switching ----
+    function applyViewMode(mode) {
+        xmlViewMode = mode;
+        try {
+            localStorage.setItem("peppol_xml_view_mode", mode);
+        } catch (e) {
+            // ignore storage errors
+        }
+
+        const body = document.body;
+        body.classList.remove("xml-view-mode-text", "xml-view-mode-tree");
+        body.classList.add(mode === "tree" ? "xml-view-mode-tree" : "xml-view-mode-text");
+
+        // Active button style
+        if (mode === "tree") {
+            textBtn.classList.remove("active");
+            treeBtn.classList.add("active");
+            renderXmlTree();
+        } else {
+            textBtn.classList.add("active");
+            treeBtn.classList.remove("active");
+            // Ensure CodeMirror refreshes when coming back
+            setTimeout(() => xmlEditor.refresh(), 0);
+        }
+    }
+
+    function fallbackCopyToClipboard(text) {
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.setAttribute("readonly", "");
+        textarea.style.position = "fixed";
+        textarea.style.left = "-9999px";
+        textarea.style.top = "0";
+        document.body.appendChild(textarea);
+
+        textarea.focus();
+        textarea.select();
+
+        let ok = false;
+        try {
+            ok = document.execCommand("copy");
+        } catch (e) {
+            ok = false;
+        }
+
+        document.body.removeChild(textarea);
+
+        if (ok) {
+            addLog("Copied XPath to clipboard.", "info");
+        } else {
+            addLog("Could not copy XPath to clipboard.", "error");
+        }
+    }
+
+
+    textBtn.addEventListener("click", () => applyViewMode("text"));
+    treeBtn.addEventListener("click", () => applyViewMode("tree"));
+
+    // Restore last mode from localStorage (default: text)
+    let stored = null;
+    try {
+        stored = localStorage.getItem("peppol_xml_view_mode");
+    } catch (e) {
+        // ignore
+    }
+    applyViewMode(stored === "tree" ? "tree" : "text");
+}
+
+function renderXmlTree() {
+    if (!xmlTreeContainer || !xmlEditor) return;
+
+    const listRoot = xmlTreeContainer.querySelector(".xml-tree-root");
+    if (!listRoot) return;
+
+    const xml = xmlEditor.getValue();
+    listRoot.innerHTML = "";
+    xmlTreeSelectedItem = null;
+    if (xmlTreePathLabel) {
+        xmlTreePathLabel.textContent = "XPath: —";
+        xmlTreePathLabel.dataset.xpath = "";
+    }
+
+    if (!xml.trim()) {
+        const li = document.createElement("li");
+        li.textContent = "No XML loaded.";
+        li.className = "xml-tree-empty";
+        listRoot.appendChild(li);
+        return;
+    }
+
+    let doc;
+    try {
+        const parser = new DOMParser();
+        doc = parser.parseFromString(xml, "application/xml");
+    } catch (e) {
+        const li = document.createElement("li");
+        li.textContent = "Could not parse XML.";
+        li.className = "xml-tree-error";
+        listRoot.appendChild(li);
+        return;
+    }
+
+    // Check for parsererror (browser dependent)
+    if (doc.getElementsByTagName("parsererror").length) {
+        const li = document.createElement("li");
+        li.textContent = "XML contains parse errors – tree view is unavailable.";
+        li.className = "xml-tree-error";
+        listRoot.appendChild(li);
+        return;
+    }
+
+    const root = doc.documentElement;
+    if (!root) {
+        const li = document.createElement("li");
+        li.textContent = "No root element found.";
+        li.className = "xml-tree-empty";
+        listRoot.appendChild(li);
+        return;
+    }
+
+    const rootItem = buildXmlTreeItem(root);
+    if (rootItem) {
+        listRoot.appendChild(rootItem);
+    }
+}
+
+function buildXmlTreeItem(node) {
+    if (!node || node.nodeType !== 1) return null; // elements only
+
+    const li = document.createElement("li");
+    li.className = "xml-tree-item";
+
+    const label = document.createElement("div");
+    label.className = "xml-tree-node";
+
+    const hasChildElements = Array.from(node.childNodes).some(
+        (n) => n.nodeType === 1
+    );
+
+    const toggle = document.createElement("span");
+    toggle.className = "xml-tree-toggle";
+    toggle.textContent = hasChildElements ? "▾" : "·";
+
+    const nameSpan = document.createElement("span");
+    nameSpan.className = "xml-tree-name";
+    nameSpan.textContent = node.tagName;
+
+    label.appendChild(toggle);
+    label.appendChild(nameSpan);
+    li.appendChild(label);
+
+    // XPath for this node
+    const xpath = buildXPathForElement(node);
+    li.dataset.xpath = xpath;
+
+    const childrenUl = document.createElement("ul");
+    childrenUl.className = "xml-tree-children";
+
+    if (hasChildElements) {
+        Array.from(node.childNodes).forEach((child) => {
+            if (child.nodeType === 1) {
+                const childLi = buildXmlTreeItem(child);
+                if (childLi) childrenUl.appendChild(childLi);
+            }
+        });
+    }
+
+    if (hasChildElements && childrenUl.childNodes.length) {
+        li.appendChild(childrenUl);
+    } else {
+        childrenUl.remove();
+        toggle.classList.add("xml-tree-toggle-leaf");
+    }
+
+    // Click behaviour: select + toggle children
+    label.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+
+        if (hasChildElements && childrenUl) {
+            const collapsed = li.classList.toggle("collapsed");
+            toggle.textContent = collapsed ? "▸" : "▾";
+        }
+
+        if (xmlTreeSelectedItem) {
+            xmlTreeSelectedItem.classList.remove("selected");
+        }
+        xmlTreeSelectedItem = li;
+        li.classList.add("selected");
+
+        if (xmlTreePathLabel) {
+            xmlTreePathLabel.textContent = "XPath: " + xpath;
+            xmlTreePathLabel.dataset.xpath = xpath;
+        }
+
+    });
+
+    return li;
+}
+
+function buildXPathForElement(node) {
+    if (!node || node.nodeType !== 1) return "";
+
+    const segments = [];
+
+    let current = node;
+    while (current && current.nodeType === 1) {
+        let index = 1;
+        let sibling = current.previousSibling;
+        while (sibling) {
+            if (sibling.nodeType === 1 && sibling.nodeName === current.nodeName) {
+                index++;
+            }
+            sibling = sibling.previousSibling;
+        }
+
+        const name = current.prefix
+            ? current.prefix + ":" + current.localName
+            : current.localName || current.nodeName;
+
+        segments.unshift(name + "[" + index + "]");
+        current = current.parentNode;
+        if (current && current.nodeType === 9) break; // Document
+    }
+
+    return "/" + segments.join("/");
+}
+
 // ---- Jump from log entry to editor line ----
 
 let lastErrorHighlight = null;
 
 function clearLastErrorHighlight() {
-  if (
-    lastErrorHighlight &&
-    lastErrorHighlight.editor &&
-    lastErrorHighlight.handle
-  ) {
-    lastErrorHighlight.editor.removeLineClass(
-      lastErrorHighlight.handle,
-      "background",
-      "cm-error-line"
-    );
-  }
-  lastErrorHighlight = null;
+    if (
+        lastErrorHighlight &&
+        lastErrorHighlight.editor &&
+        lastErrorHighlight.handle
+    ) {
+        lastErrorHighlight.editor.removeLineClass(
+            lastErrorHighlight.handle,
+            "background",
+            "cm-error-line"
+        );
+    }
+    lastErrorHighlight = null;
 }
 
 /**
@@ -624,29 +947,29 @@ function clearLastErrorHighlight() {
  * @param {number} [column] 1-based column number (optional)
  */
 function jumpToEditorLocation(source, line, column) {
-  const editor = source === "xml" ? xmlEditor : xsltEditor;
-  if (!editor) return;
+    const editor = source === "xml" ? xmlEditor : xsltEditor;
+    if (!editor) return;
 
-  const lineNumber = parseInt(line, 10);
-  if (!lineNumber || lineNumber < 1) return;
+    const lineNumber = parseInt(line, 10);
+    if (!lineNumber || lineNumber < 1) return;
 
-  const cmLine = lineNumber - 1;
-  const ch = column && column > 0 ? column - 1 : 0;
+    const cmLine = lineNumber - 1;
+    const ch = column && column > 0 ? column - 1 : 0;
 
-  clearLastErrorHighlight();
-
-  editor.focus();
-  editor.setCursor({ line: cmLine, ch });
-  editor.scrollIntoView({ line: cmLine, ch }, 80);
-
-  const handle = editor.getLineHandle(cmLine);
-  if (!handle) return;
-
-  editor.addLineClass(handle, "background", "cm-error-line");
-  lastErrorHighlight = { editor, handle };
-
-  // Remove highlight after ~1 second
-  setTimeout(() => {
     clearLastErrorHighlight();
-  }, 1000);
+
+    editor.focus();
+    editor.setCursor({line: cmLine, ch});
+    editor.scrollIntoView({line: cmLine, ch}, 80);
+
+    const handle = editor.getLineHandle(cmLine);
+    if (!handle) return;
+
+    editor.addLineClass(handle, "background", "cm-error-line");
+    lastErrorHighlight = {editor, handle};
+
+    // Remove highlight after ~1 second
+    setTimeout(() => {
+        clearLastErrorHighlight();
+    }, 1000);
 }
