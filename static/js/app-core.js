@@ -23,6 +23,9 @@ let xmlTreeContainer = null;
 let xmlTreePathLabel = null;
 let xmlTreeSelectedItem = null;
 let xmlTreeRenderTimeout = null;
+const XML_PANEL_HEIGHT_KEY = "peppol_xml_panel_height";
+const XSLT_PANEL_HEIGHT_KEY = "peppol_xslt_panel_height";
+const LOG_PANEL_HEIGHT_KEY = "peppol_log_panel_height";
 let lastHtml = "";
 let autoUpdate = true;
 let transformTimeout = null;
@@ -152,6 +155,73 @@ function downloadText(filename, text) {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+}
+
+// Generic helper: remember a resizable panel height in localStorage
+function setupPanelHeightPersistence(options) {
+  if (!options || !options.element || !options.storageKey) return;
+
+  const el = options.element;
+  const mirrors = Array.isArray(options.mirrorElements)
+    ? options.mirrorElements.filter(Boolean)
+    : [];
+  const minHeight = typeof options.minHeight === "number" ? options.minHeight : 80;
+  const maxHeight = typeof options.maxHeight === "number" ? options.maxHeight : 2000;
+  const refreshFn = typeof options.refreshFn === "function" ? options.refreshFn : null;
+  const key = options.storageKey;
+
+  // Apply stored height on load
+  let storedHeight = null;
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw) {
+      const h = parseInt(raw, 10);
+      if (h && h >= minHeight && h <= maxHeight) {
+        storedHeight = h;
+      }
+    }
+  } catch (e) {
+    // ignore storage errors
+  }
+
+  if (storedHeight) {
+    el.style.height = storedHeight + "px";
+    mirrors.forEach((m) => {
+      m.style.height = storedHeight + "px";
+    });
+    if (refreshFn) {
+      // Let layout settle first
+      setTimeout(refreshFn, 0);
+    }
+  }
+
+  // Nothing more we can do without ResizeObserver
+  if (!window.ResizeObserver) return;
+
+  const ro = new ResizeObserver((entries) => {
+    let maxObserved = null;
+
+    entries.forEach((entry) => {
+      const h = Math.round(entry.contentRect.height);
+      if (!h || h < minHeight || h > maxHeight) return;
+      if (maxObserved === null || h > maxObserved) {
+        maxObserved = h;
+      }
+    });
+
+    if (!maxObserved) return;
+
+    try {
+      localStorage.setItem(key, String(maxObserved));
+    } catch (e) {
+      // ignore storage errors
+    }
+  });
+
+  ro.observe(el);
+  mirrors.forEach((m) => {
+    ro.observe(m);
+  });
 }
 
 // THEME: for now we force light mode and disable toggle (WIP)

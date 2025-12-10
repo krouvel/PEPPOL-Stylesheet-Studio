@@ -257,6 +257,28 @@ function initEditors() {
 
     // XML Text/Tree view toggle
     initXmlViewToggle();
+
+    // Persist panel heights (shared helper from app-core.js)
+    if (typeof setupPanelHeightPersistence === "function") {
+        // XML editor: also mirror height to the Tree container when present
+        setupPanelHeightPersistence({
+            element: xmlEditor.getWrapperElement(),
+            storageKey: XML_PANEL_HEIGHT_KEY,
+            minHeight: 80,
+            maxHeight: 2000,
+            mirrorElements: xmlTreeContainer ? [xmlTreeContainer] : [],
+            refreshFn: () => xmlEditor.refresh()
+        });
+
+        // XSLT editor
+        setupPanelHeightPersistence({
+            element: xsltEditor.getWrapperElement(),
+            storageKey: XSLT_PANEL_HEIGHT_KEY,
+            minHeight: 80,
+            maxHeight: 2000,
+            refreshFn: () => xsltEditor.refresh()
+        });
+    }
 }
 
 function autoDetectXsltVersion() {
@@ -968,6 +990,19 @@ function buildXPathForElement(node) {
     return "/" + segments.join("/");
 }
 
+function initLogPanelHeightPersistence() {
+    const panel = document.getElementById("log-panel");
+    if (!panel || typeof setupPanelHeightPersistence !== "function") return;
+
+    setupPanelHeightPersistence({
+        element: panel,
+        storageKey: LOG_PANEL_HEIGHT_KEY,
+        minHeight: 60,
+        maxHeight: 1000
+    });
+}
+
+
 // ---- Jump from log entry to editor line ----
 
 let lastErrorHighlight = null;
@@ -1022,3 +1057,5 @@ function jumpToEditorLocation(source, line, column) {
         clearLastErrorHighlight();
     }, 1000);
 }
+
+document.addEventListener("DOMContentLoaded", initLogPanelHeightPersistence);
