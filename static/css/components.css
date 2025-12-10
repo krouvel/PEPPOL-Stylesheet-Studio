@@ -214,10 +214,17 @@
   border-radius: 0 0 0.6rem 0.6rem;
   border-top: none;
   background: #f9fafb;
-  max-height: 60vh;
+
+  /* match CodeMirror behavior so Tree has the same “window” size+resize */
+  min-height: 180px;
+  height: 240px;
+  max-height: 80vh;
   overflow: auto;
+  resize: vertical;
+
   font-size: 0.78rem;
 }
+
 
 /* Global mode switching */
 body.xml-view-mode-text .xml-editor-wrapper {
