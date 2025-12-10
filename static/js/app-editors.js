@@ -208,6 +208,16 @@ function initEditors() {
     xmlEditor = CodeMirror.fromTextArea(xmlTextarea, commonOptions);
     xsltEditor = CodeMirror.fromTextArea(xsltTextarea, commonOptions);
 
+    xmlEditor.on("change", () => {
+        if (xmlViewMode !== "tree") return;
+        if (xmlTreeRenderTimeout) {
+            clearTimeout(xmlTreeRenderTimeout);
+        }
+        xmlTreeRenderTimeout = setTimeout(() => {
+            renderXmlTree();
+        }, 400);
+    });
+
     const xmlWrapper = xmlEditor.getWrapperElement();
     if (xmlWrapper) {
         xmlWrapper.classList.add("xml-editor-wrapper");

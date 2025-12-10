@@ -22,6 +22,7 @@ let xmlViewMode = "text"; // "text" | "tree"
 let xmlTreeContainer = null;
 let xmlTreePathLabel = null;
 let xmlTreeSelectedItem = null;
+let xmlTreeRenderTimeout = null;
 let lastHtml = "";
 let autoUpdate = true;
 let transformTimeout = null;
