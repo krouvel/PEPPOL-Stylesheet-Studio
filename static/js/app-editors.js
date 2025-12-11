@@ -405,18 +405,18 @@ ${svgText}
 /* -------- Preview → XSLT jump (Ctrl+click in preview) -------- */
 
 function clearXsltJumpHighlight() {
-  if (!xsltEditor || lastXsltJumpHighlight == null) return;
+    if (!xsltEditor || lastXsltJumpHighlight == null) return;
 
-  try {
-    xsltEditor.removeLineClass(
-      lastXsltJumpHighlight,
-      "background",
-      "cm-preview-jump-line"
-    );
-  } catch (e) {
-    // ignore
-  }
-  lastXsltJumpHighlight = null;
+    try {
+        xsltEditor.removeLineClass(
+            lastXsltJumpHighlight,
+            "background",
+            "cm-preview-jump-line"
+        );
+    } catch (e) {
+        // ignore
+    }
+    lastXsltJumpHighlight = null;
 }
 
 /**
@@ -424,148 +424,344 @@ function clearXsltJumpHighlight() {
  * Works well for static labels/headings that also exist literally in the stylesheet.
  */
 function jumpXsltToPreviewText(rawText) {
-  if (!xsltEditor) {
-    addLog("XSLT editor is not ready, cannot jump from preview.", "error");
-    return;
-  }
-
-  const text = (rawText || "").replace(/\s+/g, " ").trim();
-  if (!text) {
-    addLog("Clicked preview element has no text to locate in XSLT.", "info");
-    return;
-  }
-
-  const content = xsltEditor.getValue();
-  if (!content) {
-    addLog(
-      "XSLT editor is empty, cannot locate clicked preview content.",
-      "info"
-    );
-    return;
-  }
-
-  // First try: a reasonable-length prefix of the whole text
-  let snippet = text.length <= 80 ? text : text.slice(0, 80);
-  let index = content.indexOf(snippet);
-
-  // Second try: longest “word” (>= 4 chars)
-  if (index === -1) {
-    const words = text
-      .split(/\s+/)
-      .filter((w) => w.length >= 4)
-      .sort((a, b) => b.length - a.length);
-
-    for (let i = 0; i < words.length; i++) {
-      index = content.indexOf(words[i]);
-      if (index !== -1) {
-        snippet = words[i];
-        break;
-      }
-    }
-  }
-
-  if (index === -1) {
-    addLog("Could not locate clicked preview content in XSLT.", "warning");
-    return;
-  }
-
-  const pos = xsltEditor.posFromIndex(index);
-
-  clearXsltJumpHighlight();
-  lastXsltJumpHighlight = xsltEditor.addLineClass(
-    pos.line,
-    "background",
-    "cm-preview-jump-line"
-  );
-
-  xsltEditor.scrollIntoView({ line: pos.line, ch: pos.ch }, 100);
-  xsltEditor.setCursor(pos);
-  xsltEditor.focus();
-
-  addLog("Jumped to XSLT using clicked preview text.", "info");
-}
-
-// -------- Document info panel --------
-
-function updateDocumentInfoFromXml() {
-    const xml = xmlEditor.getValue();
-    const rootEl = document.getElementById("docInfoRoot");
-    const idEl = document.getElementById("docInfoId");
-    const issueEl = document.getElementById("docInfoIssueDate");
-    const dueEl = document.getElementById("docInfoDueDate");
-    const typeEl = document.getElementById("docInfoType");
-    const emptyEl = document.querySelector("#docInfoContent .doc-info-empty");
-
-    if (!rootEl || !idEl || !issueEl || !dueEl || !typeEl) return;
-
-    if (!xml.trim()) {
-        rootEl.textContent = "—";
-        idEl.textContent = "—";
-        issueEl.textContent = "—";
-        dueEl.textContent = "—";
-        typeEl.textContent = "—";
-        if (emptyEl) emptyEl.style.display = "block";
+    if (!xsltEditor) {
+        addLog("XSLT editor is not ready, cannot jump from preview.", "error");
         return;
     }
 
-    let root = "—";
-    let invoiceId = "—";
-    let issueDate = "—";
-    let dueDate = "—";
-    let dtype = "Unknown";
+    const text = (rawText || "").replace(/\s+/g, " ").trim();
+    if (!text) {
+        addLog("Clicked preview element has no text to locate in XSLT.", "info");
+        return;
+    }
 
-    // Root element (ignore optional prefix, e.g. <cbc:Invoice>)
-    const rootMatch = xml.match(/<\s*(?:\w+:)?([A-Za-z_][\w\-.]*)[^>]*>/);
-    if (rootMatch) {
-        root = rootMatch[1];
-        if (/invoice/i.test(root)) {
-            dtype = "Invoice";
+    const content = xsltEditor.getValue();
+    if (!content) {
+        addLog(
+            "XSLT editor is empty, cannot locate clicked preview content.",
+            "info"
+        );
+        return;
+    }
+
+    // First try: a reasonable-length prefix of the whole text
+    let snippet = text.length <= 80 ? text : text.slice(0, 80);
+    let index = content.indexOf(snippet);
+
+    // Second try: longest “word” (>= 4 chars)
+    if (index === -1) {
+        const words = text
+            .split(/\s+/)
+            .filter((w) => w.length >= 4)
+            .sort((a, b) => b.length - a.length);
+
+        for (let i = 0; i < words.length; i++) {
+            index = content.indexOf(words[i]);
+            if (index !== -1) {
+                snippet = words[i];
+                break;
+            }
         }
     }
 
-    // Try to detect UBL/PEPPOL namespace
-    if (/urn:oasis:names:specification:ubl:schema:xsd:Invoice-2/i.test(xml)) {
-        dtype = "UBL Invoice (PEPPOL-like)";
+    if (index === -1) {
+        addLog("Could not locate clicked preview content in XSLT.", "warning");
+        return;
     }
 
-    // Invoice ID: <cbc:ID> or <ID>
-    let idMatch =
-        xml.match(/<\s*cbc:ID[^>]*>([^<]+)<\/\s*cbc:ID\s*>/i) ||
-        xml.match(/<\s*(?:\w+:)?ID[^>]*>([^<]+)<\/\s*(?:\w+:)?ID\s*>/i);
+    const pos = xsltEditor.posFromIndex(index);
 
-    if (idMatch) {
-        invoiceId = idMatch[1].trim();
+    clearXsltJumpHighlight();
+    lastXsltJumpHighlight = xsltEditor.addLineClass(
+        pos.line,
+        "background",
+        "cm-preview-jump-line"
+    );
+
+    xsltEditor.scrollIntoView({line: pos.line, ch: pos.ch}, 100);
+    xsltEditor.setCursor(pos);
+    xsltEditor.focus();
+
+    addLog("Jumped to XSLT using clicked preview text.", "info");
+}
+
+// ===== Document info helpers =====
+
+function setDocInfoField(fieldId, value) {
+    var el = document.getElementById(fieldId);
+    if (!el) {
+        return;
+    }
+    el.textContent = value && String(value).trim() ? value : "—";
+}
+
+function findFirstElement(root, selectors) {
+    if (!root || !selectors) {
+        return null;
+    }
+    for (var i = 0; i < selectors.length; i++) {
+        var sel = selectors[i];
+
+        // 1) Try full name (e.g. "cbc:ID")
+        var els = root.getElementsByTagName(sel);
+        if (els && els.length) {
+            return els[0];
+        }
+
+        // 2) Try by localName with wildcard namespace (e.g. "ID")
+        var colonIndex = sel.indexOf(":");
+        var local = colonIndex !== -1 ? sel.slice(colonIndex + 1) : sel;
+
+        if (root.getElementsByTagNameNS) {
+            try {
+                els = root.getElementsByTagNameNS("*", local);
+                if (els && els.length) {
+                    return els[0];
+                }
+            } catch (e) {
+                // ignore
+            }
+        }
+    }
+    return null;
+}
+
+function findFirstText(root, selectors) {
+    var el = findFirstElement(root, selectors);
+    if (el && el.textContent) {
+        return el.textContent.trim();
+    }
+    return "";
+}
+
+function findPartyInfo(doc, containerSelectors) {
+    var container = findFirstElement(doc, containerSelectors);
+    if (!container) {
+        return {name: "", id: ""};
     }
 
-    // Issue date: <cbc:IssueDate> or <IssueDate>
-    const issueMatch =
-        xml.match(/<\s*(?:\w+:)?IssueDate[^>]*>([^<]+)<\/\s*(?:\w+:)?IssueDate\s*>/i);
-    if (issueMatch) {
-        issueDate = issueMatch[1].trim();
+    var party = findFirstElement(container, ["cac:Party", "Party"]) || container;
+
+    var name =
+        findFirstText(party, ["cbc:Name", "Name"]) ||
+        findFirstText(party, ["cbc:RegistrationName", "RegistrationName"]);
+
+    var endpointId = findFirstText(party, ["cbc:EndpointID", "EndpointID"]);
+    var companyId = findFirstText(party, ["cbc:CompanyID", "CompanyID"]);
+    var id = endpointId || companyId;
+
+    return {name: name, id: id};
+}
+
+function detectDocType(rootName, customizationId, profileId) {
+    if (!rootName) {
+        return "Unknown";
     }
 
-    // Due date: <cbc:DueDate> or <DueDate>
-    const dueMatch =
-        xml.match(/<\s*(?:\w+:)?DueDate[^>]*>([^<]+)<\/\s*(?:\w+:)?DueDate\s*>/i);
-    if (dueMatch) {
-        dueDate = dueMatch[1].trim();
+    var base = rootName.toLowerCase();
+    var label;
+
+    if (base.indexOf("invoice") !== -1) {
+        label = "Invoice";
+    } else if (
+        base.indexOf("creditnote") !== -1 ||
+        base.indexOf("credit-note") !== -1
+    ) {
+        label = "Credit note";
+    } else if (base.indexOf("order") !== -1) {
+        label = "Order";
+    } else {
+        label = rootName;
     }
 
-    rootEl.textContent = root;
-    idEl.textContent = invoiceId;
-    issueEl.textContent = issueDate;
-    dueEl.textContent = dueDate;
-    typeEl.textContent = dtype;
+    var extra = "";
+    var cust = (customizationId || "").toLowerCase();
+    var profile = (profileId || "").toLowerCase();
 
-    if (emptyEl) {
-        const allEmpty =
-            root === "—" &&
-            invoiceId === "—" &&
-            issueDate === "—" &&
-            dueDate === "—" &&
-            dtype === "Unknown";
-        emptyEl.style.display = allEmpty ? "block" : "none";
+    // Rough PEPPOL / EN16931 detection
+    if (
+        cust.indexOf("peppol.eu") !== -1 ||
+        cust.indexOf("poacc:billing:3.0") !== -1
+    ) {
+        extra = " (PEPPOL BIS Billing 3 / UBL 2.1)";
+    } else if (
+        cust.indexOf("en16931") !== -1 ||
+        profile.indexOf("en16931") !== -1
+    ) {
+        extra = " (EN 16931 family)";
     }
+
+    return extra ? label + extra : label;
+}
+
+function extractDocumentInfo(xmlText) {
+    if (!xmlText || !xmlText.trim()) {
+        return null;
+    }
+
+    if (typeof DOMParser === "undefined") {
+        // Very old browsers – do nothing
+        return null;
+    }
+
+    var parser = new DOMParser();
+    var xmlDoc;
+
+    try {
+        xmlDoc = parser.parseFromString(xmlText, "application/xml");
+    } catch (e) {
+        if (typeof console !== "undefined" && console.warn) {
+            console.warn("Failed to parse XML for document info", e);
+        }
+        return null;
+    }
+
+    if (!xmlDoc || !xmlDoc.documentElement) {
+        return null;
+    }
+
+    // DOMParser signals errors via <parsererror> in many browsers
+    var errNodes = xmlDoc.getElementsByTagName("parsererror");
+    if (errNodes && errNodes.length) {
+        return null;
+    }
+
+    var root = xmlDoc.documentElement;
+    var rootName = (root.localName || root.nodeName || "").trim();
+
+    // Basic identifiers / dates
+    var invoiceId = findFirstText(xmlDoc, ["cbc:ID", "ID"]);
+    var issueDate = findFirstText(xmlDoc, ["cbc:IssueDate", "IssueDate"]);
+    var dueDate = findFirstText(xmlDoc, ["cbc:DueDate", "DueDate"]);
+
+    // UBL / PEPPOL metadata
+    var customizationId = findFirstText(xmlDoc, [
+        "cbc:CustomizationID",
+        "CustomizationID",
+    ]);
+    var profileId = findFirstText(xmlDoc, ["cbc:ProfileID", "ProfileID"]);
+
+    // Parties
+    var seller = findPartyInfo(xmlDoc, [
+        "cac:AccountingSupplierParty",
+        "cac:SupplierParty",
+        "AccountingSupplierParty",
+        "SupplierParty",
+    ]);
+
+    var buyer = findPartyInfo(xmlDoc, [
+        "cac:AccountingCustomerParty",
+        "cac:CustomerParty",
+        "AccountingCustomerParty",
+        "CustomerParty",
+    ]);
+
+    // Currency & totals
+    var currencyCode = findFirstText(xmlDoc, [
+        "cbc:DocumentCurrencyCode",
+        "DocumentCurrencyCode",
+    ]);
+
+    var payableEl = findFirstElement(xmlDoc, [
+        "cbc:PayableAmount",
+        "PayableAmount",
+    ]);
+
+    var payableAmount = "";
+    if (payableEl) {
+        if (payableEl.textContent) {
+            payableAmount = payableEl.textContent.trim();
+        }
+        var currencyAttr = payableEl.getAttribute("currencyID");
+        if (!currencyCode && currencyAttr) {
+            currencyCode = currencyAttr;
+        }
+    }
+
+    // Type detection
+    var docType = detectDocType(rootName, customizationId, profileId);
+
+    return {
+        rootName: rootName,
+        invoiceId: invoiceId,
+        issueDate: issueDate,
+        dueDate: dueDate,
+        customizationId: customizationId,
+        profileId: profileId,
+        sellerName: seller.name,
+        sellerId: seller.id,
+        buyerName: buyer.name,
+        buyerId: buyer.id,
+        currencyCode: currencyCode,
+        payableAmount: payableAmount,
+        docType: docType,
+    };
+}
+
+function resetDocumentInfoPanel() {
+    setDocInfoField("docInfo-root", "");
+    setDocInfoField("docInfo-id", "");
+    setDocInfoField("docInfo-issueDate", "");
+    setDocInfoField("docInfo-dueDate", "");
+    setDocInfoField("docInfo-customizationId", "");
+    setDocInfoField("docInfo-profileId", "");
+    setDocInfoField("docInfo-seller", "");
+    setDocInfoField("docInfo-buyer", "");
+    setDocInfoField("docInfo-currency", "");
+    setDocInfoField("docInfo-payableAmount", "");
+    setDocInfoField("docInfo-type", "");
+}
+
+// implementation of the public function used elsewhere
+function updateDocumentInfoFromXml() {
+    // Assumes xmlEditor is the CodeMirror instance for XML (same as before)
+    if (typeof xmlEditor === "undefined" || !xmlEditor) {
+        return;
+    }
+
+    var xmlText = xmlEditor.getValue();
+    if (!xmlText || !xmlText.trim()) {
+        resetDocumentInfoPanel();
+        return;
+    }
+
+    var info = extractDocumentInfo(xmlText);
+    if (!info) {
+        resetDocumentInfoPanel();
+        return;
+    }
+
+    setDocInfoField("docInfo-root", info.rootName);
+    setDocInfoField("docInfo-id", info.invoiceId);
+    setDocInfoField("docInfo-issueDate", info.issueDate);
+    setDocInfoField("docInfo-dueDate", info.dueDate);
+    setDocInfoField("docInfo-customizationId", info.customizationId);
+    setDocInfoField("docInfo-profileId", info.profileId);
+
+    var sellerCombined =
+        info.sellerName || info.sellerId
+            ? (info.sellerName || "") +
+            (info.sellerId ? " (" + info.sellerId + ")" : "")
+            : "";
+    var buyerCombined =
+        info.buyerName || info.buyerId
+            ? (info.buyerName || "") +
+            (info.buyerId ? " (" + info.buyerId + ")" : "")
+            : "";
+
+    setDocInfoField("docInfo-seller", sellerCombined);
+    setDocInfoField("docInfo-buyer", buyerCombined);
+
+    var currencyDisplay = info.currencyCode || "";
+    setDocInfoField("docInfo-currency", currencyDisplay);
+
+    var payableDisplay = info.payableAmount;
+    if (payableDisplay && info.currencyCode) {
+        payableDisplay += " " + info.currencyCode;
+    }
+    setDocInfoField("docInfo-payableAmount", payableDisplay);
+
+    setDocInfoField("docInfo-type", info.docType);
 }
 
 function initDocInfoCollapse() {
