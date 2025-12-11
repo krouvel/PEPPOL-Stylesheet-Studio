@@ -91,9 +91,8 @@ def api_sample_saxon():
     """
     Return the PEPPOL sample XML + XSLT from samples/Saxon.
     """
-    base_dir = os.path.dirname(__file__)
-    xml_path = os.path.join(base_dir, "samples", "Saxon", "peppol-invoice.xml")
-    xslt_path = os.path.join(base_dir, "samples", "Saxon", "peppol-stylesheet.xslt")
+    xml_path = os.path.join(BASE_DIR, "samples", "Saxon", "peppol-invoice.xml")
+    xslt_path = os.path.join(BASE_DIR, "samples", "Saxon", "peppol-stylesheet.xslt")
 
     try:
         with open(xml_path, "r", encoding="utf-8") as f:
