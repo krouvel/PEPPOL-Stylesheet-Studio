@@ -9,6 +9,10 @@ from peppol_stylesheet_studio.engines import (
 
 app = Flask(__name__)
 
+# Maximum length (in characters) for XML and XSLT payloads.
+# Adjust as needed – 10_000_000 chars ~ 10MB of text.
+MAX_INPUT_CHARS = int(os.getenv("MAX_INPUT_CHARS", "10000000"))
+
 
 # ------------- LXML (XSLT 1.0) ENGINE -------------
 
@@ -42,6 +46,20 @@ def api_transform():
 
     logs = []
     engine = "lxml"
+
+    # --- Guardrail: limit input size to protect the server ---
+    total_len = len(xml) + len(xslt)
+    if total_len > MAX_INPUT_CHARS:
+        msg = (
+            f"Input too large: XML + XSLT is {total_len} characters. "
+            f"Limit is {MAX_INPUT_CHARS}."
+        )
+        logs.append(f"[ERROR] {msg}")
+        # 413 = Payload Too Large
+        return (
+            jsonify({"ok": False, "html": "", "log": logs, "engine": engine}),
+            413,
+        )
 
     # Decide which engine to use
     use_saxon = SAXON.enabled and ui_version in ("2.0", "3.0")

@@ -6,6 +6,20 @@ import os
 
 from config import SAXON, BASE_DIR
 
+# Use a hardened XML parser for untrusted input.
+# - resolve_entities=False: do not expand external entities (avoids XXE).
+# - load_dtd=False / dtd_validation=False: do not load or validate against DTDs.
+# - no_network=True: do not access the network to load external entities.
+# - huge_tree=False: keep libxml2 safety limits to avoid XML bombs.
+SECURE_XML_PARSER = etree.XMLParser(
+    resolve_entities=False,
+    load_dtd=False,
+    dtd_validation=False,
+    no_network=True,
+    huge_tree=False,
+)
+
+
 def _log_xml_syntax_error(logs, source: str, e: Exception):
     """
     Pushes a formatted, single log line that includes source (xml/xslt)
@@ -74,14 +88,14 @@ def transform_with_lxml(xml_str: str, xslt_str: str):
 
         # --- Parse XML with syntax error handling ---
         try:
-            xml_doc = etree.fromstring(xml_str.encode("utf-8"))
+            xml_doc = etree.fromstring(xml_str.encode("utf-8"), parser=SECURE_XML_PARSER)
         except etree.XMLSyntaxError as e:
             _log_xml_syntax_error(logs, "xml", e)
             return "", logs, str(e)
 
         # --- Parse XSLT with syntax error handling ---
         try:
-            xslt_doc = etree.XML(xslt_str.encode("utf-8"))
+            xslt_doc = etree.XML(xslt_str.encode("utf-8"), parser=SECURE_XML_PARSER)
         except etree.XMLSyntaxError as e:
             _log_xml_syntax_error(logs, "xslt", e)
             return "", logs, str(e)
