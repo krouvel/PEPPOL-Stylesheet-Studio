@@ -286,24 +286,43 @@ function initEditors() {
 }
 
 function autoDetectXsltVersion() {
+    const xsltVersionSelect = document.getElementById("xsltVersionSelect");
+    if (!xsltVersionSelect || !xsltEditor) {
+        return;
+    }
+
     const text = xsltEditor.getValue();
+    // Capture the value of the version="..." attribute on <xsl:stylesheet ...>
     const match = text.match(
-        /<xsl:(stylesheet|transform)[^>]*\bversion=["']([^"']+)["'][^>]*>/i
+        /<xsl:stylesheet[^>]*\bversion=["']([^"']+)["'][^>]*>/i
     );
-    if (match) {
-        const detected = match[2];
-        const xsltVersionSelect = document.getElementById("xsltVersionSelect");
-        const options = Array.from(xsltVersionSelect.options).map((o) => o.value);
-        if (options.includes(detected)) {
-            if (xsltVersionSelect.value !== detected) {
-                xsltVersionSelect.value = detected;
-                addLog(`Detected XSLT version ${detected} from stylesheet.`, "info");
-                saveState();
-            }
+
+    if (match && match[1]) {
+        const detected = match[1].trim(); // <- use group 1, not 2
+
+        if (detected.startsWith("2") || detected.startsWith("3")) {
+            // Prefer Saxon for XSLT 2.0/3.0 stylesheets
+            xsltVersionSelect.value = "2.0";
+            addLog(
+                `Detected XSLT version "${detected}" in stylesheet – switched engine to XSLT 2.0 (Saxon).`,
+                "info"
+            );
         } else {
-            addLog(`Detected XSLT version ${detected}, which is not in the list.`, "info");
+            xsltVersionSelect.value = "1.0";
+            addLog(
+                `Detected XSLT version "${detected}" in stylesheet – using XSLT 1.0 engine (lxml).`,
+                "info"
+            );
+        }
+    } else {
+        // No explicit version found – default to current select value or 1.0
+        if (!xsltVersionSelect.value) {
+            xsltVersionSelect.value = "1.0";
         }
     }
+
+    // Persist choice for future reloads
+    saveState();
 }
 
 function loadSampleContent() {
