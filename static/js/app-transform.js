@@ -26,9 +26,42 @@ function scheduleTransform() {
     if (transformTimeout) {
         clearTimeout(transformTimeout);
     }
+
+    // Estimate document size (XML + XSLT) to tune the debounce delay
+    const xmlLen = xmlEditor ? xmlEditor.getValue().length : 0;
+    const xsltLen = xsltEditor ? xsltEditor.getValue().length : 0;
+    const totalLen = xmlLen + xsltLen;
+
+    let delay = 500;
+    let newSlowMode = false;
+
+    // Adjust thresholds as you like; these are conservative defaults
+    if (totalLen > 200000) {
+        // Very large combined input → run transforms less frequently
+        delay = 1500;
+        newSlowMode = true;
+    } else if (totalLen > 100000) {
+        // Medium-large input
+        delay = 1000;
+        newSlowMode = true;
+    }
+
+    // Log only when we switch modes, to avoid flooding the log
+    if (newSlowMode !== slowAutoUpdate) {
+        slowAutoUpdate = newSlowMode;
+        if (slowAutoUpdate) {
+            addLog(
+                "Large document detected – auto-update will run less frequently to keep the UI responsive.",
+                "info"
+            );
+        } else {
+            addLog("Document size reduced – auto-update delay restored.", "info");
+        }
+    }
+
     transformTimeout = setTimeout(() => {
         doTransform();
-    }, 500);
+    }, delay);
 }
 
 function doTransform() {

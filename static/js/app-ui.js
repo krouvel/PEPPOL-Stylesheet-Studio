@@ -334,24 +334,35 @@ function restoreState() {
     restoreEditorCollapseState();
 }
 
+let saveStateTimeout = null;
+
 function saveState() {
-    try {
-        localStorage.setItem(STORAGE_KEYS.xml, xmlEditor.getValue());
-        localStorage.setItem(STORAGE_KEYS.xslt, xsltEditor.getValue());
-        localStorage.setItem(STORAGE_KEYS.html, lastHtml);
-        localStorage.setItem(STORAGE_KEYS.autoUpdate, String(autoUpdate));
-        const mainLayout = document.getElementById("mainLayout");
-        localStorage.setItem(
-            STORAGE_KEYS.layout,
-            mainLayout.classList.contains("main-layout-vertical")
-                ? "main-layout-vertical"
-                : "main-layout-horizontal"
-        );
-        const xsltVersionSelect = document.getElementById("xsltVersionSelect");
-        localStorage.setItem(STORAGE_KEYS.xsltVersion, xsltVersionSelect.value);
-    } catch (e) {
-        addLog("Could not save state to browser storage.", "error");
+    // Debounce to avoid writing to localStorage on every keystroke
+    if (saveStateTimeout) {
+        clearTimeout(saveStateTimeout);
     }
+
+    saveStateTimeout = setTimeout(() => {
+        try {
+            localStorage.setItem(STORAGE_KEYS.xml, xmlEditor.getValue());
+            localStorage.setItem(STORAGE_KEYS.xslt, xsltEditor.getValue());
+            localStorage.setItem(STORAGE_KEYS.html, lastHtml);
+            localStorage.setItem(STORAGE_KEYS.autoUpdate, String(autoUpdate));
+
+            const mainLayout = document.getElementById("mainLayout");
+            localStorage.setItem(
+                STORAGE_KEYS.layout,
+                mainLayout.classList.contains("main-layout-vertical")
+                    ? "main-layout-vertical"
+                    : "main-layout-horizontal"
+            );
+
+            const xsltVersionSelect = document.getElementById("xsltVersionSelect");
+            localStorage.setItem(STORAGE_KEYS.xsltVersion, xsltVersionSelect.value);
+        } catch (e) {
+            addLog("Could not save state to browser storage.", "error");
+        }
+    }, 800); // 0.8s after last change
 }
 
 // ---- bootstrap & shortcuts ----

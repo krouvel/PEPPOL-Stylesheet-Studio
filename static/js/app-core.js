@@ -29,6 +29,7 @@ const LOG_PANEL_HEIGHT_KEY = "peppol_log_panel_height";
 let lastHtml = "";
 let autoUpdate = true;
 let transformTimeout = null;
+let slowAutoUpdate = false;
 
 let previewZoom = 1.0;
 const PREVIEW_ZOOM_MIN = 0.25;
