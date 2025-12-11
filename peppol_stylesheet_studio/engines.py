@@ -1,8 +1,8 @@
-# engines.py
 from lxml import etree
 import subprocess
 import tempfile
 import os
+from functools import lru_cache  # ← add this
 
 from config import SAXON, BASE_DIR
 
@@ -18,6 +18,13 @@ SECURE_XML_PARSER = etree.XMLParser(
     no_network=True,
     huge_tree=False,
 )
+
+@lru_cache(maxsize=16)
+def _compile_xslt(xslt_str: str):
+    xslt_doc = etree.XML(xslt_str.encode("utf-8"), parser=SECURE_XML_PARSER)
+    return etree.XSLT(xslt_doc)
+
+MAX_SAXON_LOG_LINES = 200
 
 
 def _log_xml_syntax_error(logs, source: str, e: Exception):
@@ -95,29 +102,42 @@ def transform_with_lxml(xml_str: str, xslt_str: str):
 
         # --- Parse XSLT with syntax error handling ---
         try:
-            xslt_doc = etree.XML(xslt_str.encode("utf-8"), parser=SECURE_XML_PARSER)
+            # This uses the global LRU cache defined above.
+            transform = _compile_xslt(xslt_str)
         except etree.XMLSyntaxError as e:
+            # XSLT is XML; syntax errors come as XMLSyntaxError
             _log_xml_syntax_error(logs, "xslt", e)
             return "", logs, str(e)
+        except etree.XSLTParseError as e:
+            base_msg = getattr(e, "msg", None) or str(e)
+            logs.append(f"[ERROR] XSLT compilation error: {base_msg}")
+            for entry in getattr(e, "error_log", []) or []:
+                prefix = ""
+                if entry.line:
+                    prefix = f"[SRC:xslt L:{entry.line}] "
+                logs.append(
+                    f"{prefix}{entry.level_name}: "
+                    f"{entry.message.strip()} (line {entry.line})"
+                )
+            return "", logs, str(e)
 
-        # --- Apply transform ---
-        transform = etree.XSLT(xslt_doc)
-        result_tree = transform(xml_doc)
-        html = str(result_tree)
-        return html, logs, None
-
-    except etree.XSLTApplyError as e:
-        logs.append(f"XSLTApplyError: {str(e)}")
-        for entry in e.error_log:
-            # add [SRC:xslt ...] prefix so it becomes clickable
-            prefix = ""
-            if entry.line:
-                prefix = f"[SRC:xslt L:{entry.line}] "
-            logs.append(
-                f"{prefix}{entry.level_name}: "
-                f"{entry.message.strip()} (line {entry.line})"
-            )
-        return "", logs, str(e)
+        # --- Execute transform ---
+        try:
+            result_tree = transform(xml_doc)
+            html = str(result_tree)
+            return html, logs, None
+        except etree.XSLTApplyError as e:
+            logs.append(f"XSLTApplyError: {str(e)}")
+            for entry in e.error_log:
+                # add [SRC:xslt ...] prefix so it becomes clickable
+                prefix = ""
+                if entry.line:
+                    prefix = f"[SRC:xslt L:{entry.line}] "
+                logs.append(
+                    f"{prefix}{entry.level_name}: "
+                    f"{entry.message.strip()} (line {entry.line})"
+                )
+            return "", logs, str(e)
     except Exception as e:
         logs.append(f"Unexpected error in lxml engine: {str(e)}")
         return "", logs, str(e)
@@ -179,12 +199,28 @@ def transform_with_saxon(xml_str: str, xslt_str: str):
             )
 
             if result.stdout:
-                logs.append("Saxon stdout:")
-                logs.extend(["  " + line for line in result.stdout.splitlines()])
+                stdout_lines = result.stdout.splitlines()
+                if len(stdout_lines) > MAX_SAXON_LOG_LINES:
+                    logs.append(
+                        f"Saxon stdout (first {MAX_SAXON_LOG_LINES} lines, "
+                        f"truncated from {len(stdout_lines)}):"
+                    )
+                    stdout_lines = stdout_lines[:MAX_SAXON_LOG_LINES]
+                else:
+                    logs.append("Saxon stdout:")
+                logs.extend("  " + line for line in stdout_lines)
 
             if result.stderr:
-                logs.append("Saxon stderr:")
-                logs.extend(["  " + line for line in result.stderr.splitlines()])
+                stderr_lines = result.stderr.splitlines()
+                if len(stderr_lines) > MAX_SAXON_LOG_LINES:
+                    logs.append(
+                        f"Saxon stderr (first {MAX_SAXON_LOG_LINES} lines, "
+                        f"truncated from {len(stderr_lines)}):"
+                    )
+                    stderr_lines = stderr_lines[:MAX_SAXON_LOG_LINES]
+                else:
+                    logs.append("Saxon stderr:")
+                logs.extend("  " + line for line in stderr_lines)
 
             if result.returncode != 0:
                 msg = f"Saxon exited with code {result.returncode}"
